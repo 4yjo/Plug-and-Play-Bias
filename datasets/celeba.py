@@ -12,7 +12,77 @@ import pandas
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import verify_str_arg
 
+class CelebA_Attributes(Dataset):
+    """ 
+    CelebA subset filtered by selection of the 40 attributes from Celeb A FeaturesDict
+    """
+    def __init__(self,
+                 train,
+                 split_seed=42,
+                 transform=None,
+                 root='data/celeba',
+                 download: bool = False):
+        # Load default CelebA dataset
+        celeba = CustomCelebA(root=root,
+                        split='all',
+                        target_type="identity")
+        celeba.targets = celeba.identity
+        print("CelebA loaded")
+
+        #print(celeba.attr.shape)
+        #print(celeba.attr.dtype)
+
+        #all indices of nonzero elements for attribute 2 -> 'Attractive'
+       
+        #targets = np.array([t.item() for t in celeba.identity])
+        targets = celeba.attr
+        # get indices of nonzero for class 'Attractive' -> 2
+        indices = np.where(targets[:,2]>0)[0]
+
+        print("selected samples: ", len(indices))
+    
+        # Select the corresponding samples for train and test split
+        training_set_size = int(0.9 * len(indices))
+        train_idx = indices[:training_set_size]
+        test_idx = indices[training_set_size:]
+
+        print("number of selected samples for train ", len(train_idx))
+        print("number of selected samples for test ", len(test_idx))
+        if ((len(train_idx)+len(test_idx))==len(indices)):
+            print("all good! numbers are matching")
+
+        #TODO Transforms
+
+        # Split dataset
+        if train:
+            self.dataset = Subset(celeba, train_idx)
+            train_targets = np.array(targets)[train_idx]
+            #self.targets = [self.target_transform(t) for t in train_targets]
+            self.name = 'CelebA_Attributes_train'
+        else:
+            self.dataset = Subset(celeba, test_idx)
+            test_targets = np.array(targets)[test_idx]
+            #self.targets = [self.target_transform(t) for t in test_targets]
+            self.name = 'CelebA_Attributes_test'
+
+        print("SPLITTED")
+
+    def __len__(self):
+        return len(self.dataset)
+    
+
+    def __getitem__(self, idx):
+        im, _ = self.dataset[idx]
+       
+        return im, self.targets[idx]
+
+
+
+
 class CelebA1000(Dataset):
+    """ 
+    subset holding all pictures of the 1000 most frequent celebreties
+    """
     def __init__(self,
                  train,
                  split_seed=42,
@@ -164,3 +234,23 @@ class CustomCelebA(VisionDataset):
     def extra_repr(self) -> str:
         lines = ["Target type: {target_type}", "Split: {split}"]
         return '\n'.join(lines).format(**self.__dict__)
+
+
+# XY test
+
+'''
+print("INSPECTION CELEBA1000")
+inspection_set = CelebA1000(train=True)
+
+print(inspection_set[0])
+_,idx = inspection_set[0]
+print("idx: " + str(idx))
+
+'''
+print("INSPECTION CELEBA_ATTR")
+attr_set = CelebA_Attributes(train=True)
+print(len(attr_set))
+print(attr_set[0])
+# Print the attribute tensor for the first item
+#print("Attribute tensor: ", inspection_set[0].attr)
+#print("Attribute names: ", idx.attr_names)
