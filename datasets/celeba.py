@@ -121,23 +121,29 @@ class CelebA_Attributes(Dataset):
         celeba.targets=celeba.attr
         
 
-        # filter for  feature 'Attractive' (indexed 2)
+        # filter for  feature 'Attractive' (indexed 2) and XX (indexed 4)
         
-        #targets= celeba.attr[:,2]
-        # TODO erklären
-        targets = np.arange(celeba.attr.shape[0])
-        print("TARGETS")
-        print(targets.dtype)
+        a2 = celeba.attr[:,2]>0
+        a4 = celeba.attr[:,4]>0
+
+        print(a2[:10])
+        print(a4[:10])
+        
+        # combine features
+        target_mask = a2 | a4
+
+        print(target_mask[:10])
+
+        targets = celeba.attr.numpy()
         print(len(targets))
-        print(targets[:5])
+        print(targets[0])
 
-        indices = np.where(celeba.attr[:,2]>0)[0]
-        print("INDICES")
-        print(len(indices))
-        print(indices[:5])
 
-        # Select the corresponding samples for train and test split
-        #indices = np.where(np.isin(targets, filtered_targets))[0]
+        # get indices
+        indices = np.where(target_mask)[0]
+        print("indices: ", indices)
+        print("print test: ",targets[0])
+
         np.random.seed(split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices))
@@ -147,15 +153,18 @@ class CelebA_Attributes(Dataset):
         # Assert that there are no overlapping datasets
         assert len(set.intersection(set(train_idx), set(test_idx))) == 0
 
+        # Set transformations
+        self.transform = transform
 
-        # Split dataset
+         # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
-            self.targets = celeba[train_idx]
+            self.targets = np.array(targets)[train_idx]
             self.name = 'CelebA_Attributes_train'
         else:
             self.dataset = Subset(celeba, test_idx)
-            self_targets = celeba[test_idx]
+            test_targets = np.array(targets)[test_idx]
+            self.targets = np.array(targets)[test_idx]
             self.name = 'CelebA_Attributes_test'
 
     def __len__(self):
@@ -168,7 +177,9 @@ class CelebA_Attributes(Dataset):
         else:
             return im, self.targets[idx]
 
-'''
+
+
+        
 class CelebA1000(Dataset):
     """ 
     subset holding all pictures of the 1000 most frequent celebreties
@@ -193,11 +204,12 @@ class CelebA1000(Dataset):
                    reverse=True))
         sorted_targets = list(ordered_dict.keys())[:1000]
         print("targets: ", targets[:5])
+        print("target indices ", )
         print("sorted_targets: ", sorted_targets[:5])
 
         # Select the corresponding samples for train and test split
         indices = np.where(np.isin(targets, sorted_targets))[0]
-        print("indices: ",indices[:5])
+        print("indices: ",indices[:15])
         np.random.seed(split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices))
@@ -238,7 +250,7 @@ class CelebA1000(Dataset):
         else:
             return im, self.targets[idx]
 
-'''
+
 class CustomCelebA(VisionDataset):
     """ 
     Modified CelebA dataset to adapt for custom cropped images.
@@ -328,17 +340,17 @@ class CustomCelebA(VisionDataset):
         lines = ["Target type: {target_type}", "Split: {split}"]
         return '\n'.join(lines).format(**self.__dict__)
 
-'''
+
 # XY test
 
 
-print("INSPECTION CELEBA1000")
-inspection_set = CelebA1000(train=True)
-
+#print("INSPECTION CELEBA1000")
+#inspection_set = CelebA1000(train=True)
+'''
 #print(inspection_set[0])
 #_,idx = inspection_set[0]
 #print("idx: " + str(idx))
-'''
+
 print("INSPECTION ATTRIBUTES BASE CLASS")
 my_test = CustomCelebA(root='data/celeba',
                         split='all',
@@ -350,9 +362,9 @@ print(my_test[0])
 
 _,attributes = my_test[3]
 print(attributes.shape)
-
+'''
 print("INSPECTION CELAB A ATTRIBUTES CLASS")
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
-#print(attr_test[0])
+print(attr_test[0])
 
