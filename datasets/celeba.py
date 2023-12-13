@@ -12,95 +12,6 @@ import pandas
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import verify_str_arg
 
-'''
-
-class CelebA_Attributes(Dataset):
-    """ 
-    CelebA subset filtered by selection of the 40 attributes from Celeb A FeaturesDict
-    """
-    def __init__(self,
-                 train,
-                 split_seed=42,
-                 transform=None,
-                 root='data/celeba',
-                 download: bool = False):
-        # Load default CelebA dataset
-        celeba = CustomCelebA(root=root,
-                        split='all',
-                        target_type="identity")
-        celeba.targets = celeba.identity #tensor
-        
-        print("celeba.targets: ", celeba.targets.shape)
-        #print(celeba.attr.shape)
-        #print(celeba.attr.dtype)
-
-        # convert celeba indices from tensor to np array for target mapping
-        targets = np.array([t.item() for t in celeba.identity])
-        print("targets: ", len(targets))
-
-      
-        # indices of elements that do have feature 'Attractive' (indexed 2)
-        selected_targets = np.where(celeba.attr[:,2]>0)[0]
-
-        print("selected targets: ", len(selected_targets))
-        print(selected_targets[:10])
-    
-        # Select the corresponding samples for train and test split
-        training_set_size = int(0.9 * len(selected_targets))
-        train_idx = selected_targets[:training_set_size]
-        test_idx = selected_targets[training_set_size:]
-
-        print("train idx ", train_idx[:10])
-
-        print("train targets ", np.array(targets)[train_idx][:10])
-
-        # Assert that there are no overlapping datasets
-        assert len(set.intersection(set(train_idx), set(test_idx))) == 0
-
-
-        # Set transformations
-        self.transform = transform
-
-        # create dict to map original indixes to consecutive indexing from 0 to len(selected_targets)
-        target_mapping = {
-            selected_targets[i]: i
-            for i in range(len(selected_targets))
-            }
-
-        print("len dict:" ,len(target_mapping))
-
-        print(list(target_mapping.items())[:10])
-        print("new idx for 8: ", target_mapping[8])
-
-        # apply mapping
-        self.target_transform = T.Lambda(lambda x: target_mapping[x])
-
-        # Split dataset
-        if train:
-            self.dataset = Subset(celeba, train_idx)
-            train_targets = np.array(targets)[train_idx]
-            self.targets = [self.target_transform(t) for t in train_targets]
-            self.name = 'CelebA_Attributes_train'
-        else:
-            self.dataset = Subset(celeba, test_idx)
-            test_targets = np.array(targets)[test_idx]
-            self.targets = [self.target_transform(t) for t in test_targets]
-            self.name = 'CelebA_Attributes_test'
-
-        print("SPLITTED")
-
-    def __len__(self):
-        return len(self.dataset)
-    
-
-    def __getitem__(self, idx):
-        im, _ = self.dataset[idx]
-        if self.transform:
-            return self.transform(im), self.targets[idx]
-        else:
-            return im, self.targets[idx]
-
-'''
 
 class CelebA_Attributes(Dataset):
     """ 
@@ -122,27 +33,17 @@ class CelebA_Attributes(Dataset):
         
 
         # filter for  feature 'Attractive' (indexed 2) and XX (indexed 4)
-        
         a2 = celeba.attr[:,2]>0
         a4 = celeba.attr[:,4]>0
-
-        print(a2[:10])
-        print(a4[:10])
         
-        # combine features
+        # combine features with bitwise or operator
         target_mask = a2 | a4
 
-        print(target_mask[:10])
-
+        # convert targets into 2d numpy array (for each image there is a binary list for the 40 attributes)
         targets = celeba.attr.numpy()
-        print(len(targets))
-        print(targets[0])
 
-
-        # get indices
+        # get indices (can be visualized as the row numbers of items that fall into the target mask)
         indices = np.where(target_mask)[0]
-        print("indices: ", indices)
-        print("print test: ",targets[0])
 
         np.random.seed(split_seed)
         np.random.shuffle(indices)
@@ -156,7 +57,7 @@ class CelebA_Attributes(Dataset):
         # Set transformations
         self.transform = transform
 
-         # Split dataset
+        # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
             self.targets = np.array(targets)[train_idx]
