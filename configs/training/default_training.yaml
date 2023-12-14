@@ -3,7 +3,7 @@ seed: 42
 
 model:
   architecture: resnet18  # Model architecture, e.g., resnet50, densenet169, inceptionv3.
-  num_classes: 40 # Number of classes in the training set.
+  num_classes: 2 # Number of classes in the training set.
   pretrained: true # Using the ImageNet weights for initialization.
 
 dataset:
