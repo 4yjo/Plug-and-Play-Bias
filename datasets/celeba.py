@@ -65,7 +65,7 @@ class CelebA_Attributes(Dataset):
         for key, value in list(targets_mapping.items())[-5:]:
             print(f"{key}: {value}")
 
-
+        print("end")
 
 
         np.random.seed(split_seed)
@@ -100,11 +100,11 @@ class CelebA_Attributes(Dataset):
         if train:
             self.dataset = Subset(celeba, train_idx)
             #train_targets = np.array(targets)[train_idx]
-            #self.targets = np.array(targets)[train_idx]
+            self.targets = np.array([targets_mapping[x] for x in train_idx])
             self.name = 'CelebA_Attributes_train'
         else:
             self.dataset = Subset(celeba, test_idx)
-            #self.targets = celeba.targets[test_idx]
+            self.targets = np.array([targets_mapping[x] for x in train_idx])
             self.name = 'CelebA_Attributes_test'
 
     def __len__(self):
