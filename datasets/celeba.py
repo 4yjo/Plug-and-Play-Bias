@@ -31,19 +31,42 @@ class CelebA_Attributes(Dataset):
 
         celeba.targets=celeba.attr
         
+        # get targets >> values for attribute indexed 2
+       # targets = np.array([t.item() for t in celeba.attr[:,2]])
+        #print("targets: ", targets[:10])
 
-        # filter for  feature 'Attractive' (indexed 2) and XX (indexed 4)
+        # filter for  feature 'Attractive' (indexed 2) 
         a2 = celeba.attr[:,2]>0
-        a4 = celeba.attr[:,4]>0
+        #a4 = celeba.attr[:,4]>0
         
         # combine features with bitwise or operator
-        target_mask = a2 | a4
-
-        # convert targets into 2d numpy array (for each image there is a binary list for the 40 attributes)
-        targets = celeba.attr.numpy()
+        #target_mask = a2 | a4
+        target_mask = a2
 
         # get indices (can be visualized as the row numbers of items that fall into the target mask)
-        indices = np.where(target_mask)[0]
+        pos_indices = np.where(target_mask)[0] # indices of images that have attribute
+        neg_indices = np.where(~target_mask)[0] #indices of images that dont have attribute
+        neg_indices = neg_indices[:(len(pos_indices))] #make them the same size # TODO overthink distribution: is 50:50 always best?
+        print("indices of images that hold attr: ", pos_indices[:10])
+        print("amount pos ind: ",len(pos_indices))
+
+        print("indices of images that dont hold attr: ", neg_indices[:10])
+        print("amount neg ind: ",len(neg_indices))
+        indices = np.concatenate([pos_indices, neg_indices])
+        
+        # map targets and indices (before shuffeling)
+        targets_mapping = {
+            indices[i]: 1 if i < len(pos_indices) else 0
+            for i in range(len(indices))
+}
+        print("targets_mapping: ")
+        for key, value in list(targets_mapping.items())[:5]:
+            print(f"{key}: {value}")
+        for key, value in list(targets_mapping.items())[-5:]:
+            print(f"{key}: {value}")
+
+
+
 
         np.random.seed(split_seed)
         np.random.shuffle(indices)
@@ -57,15 +80,31 @@ class CelebA_Attributes(Dataset):
         # Set transformations
         self.transform = transform
 
+        '''
+        # map indices so they are in consecutive order
+        index_mapping = {
+            indices[i]: i
+            for i in range(len(indices))
+            }
+        
+        print("index_mapping: ")
+        for key, value in list(index_mapping.items())[:5]:
+            print(f"{key}: {value}")
+        
+        # maps sorted_targets to indices 0,1,2,3,...
+        #self.target_transform = T.Lambda(lambda x: index_mapping[x])
+        '''
+       
+
         # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
-            self.targets = np.array(targets)[train_idx]
+            #train_targets = np.array(targets)[train_idx]
+            #self.targets = np.array(targets)[train_idx]
             self.name = 'CelebA_Attributes_train'
         else:
             self.dataset = Subset(celeba, test_idx)
-            test_targets = np.array(targets)[test_idx]
-            self.targets = np.array(targets)[test_idx]
+            #self.targets = celeba.targets[test_idx]
             self.name = 'CelebA_Attributes_test'
 
     def __len__(self):
@@ -105,12 +144,13 @@ class CelebA1000(Dataset):
                    reverse=True))
         sorted_targets = list(ordered_dict.keys())[:1000]
         print("targets: ", targets[:5])
-        print("target indices ", )
-        print("sorted_targets: ", sorted_targets[:5])
+
 
         # Select the corresponding samples for train and test split
         indices = np.where(np.isin(targets, sorted_targets))[0]
-        print("indices: ",indices[:15])
+        print("indices ", indices)
+        print(len(indices))
+        
         np.random.seed(split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices))
@@ -127,13 +167,19 @@ class CelebA1000(Dataset):
             for i in range(len(sorted_targets))
         }
 
+        print("target_mapping: ")
+        for key, value in list(target_mapping.items())[:5]:
+            print(f"{key}: {value}")
+
         self.target_transform = T.Lambda(lambda x: target_mapping[x])
 
         # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
             train_targets = np.array(targets)[train_idx]
+            print("shuffeled train_targets", train_targets[:5])
             self.targets = [self.target_transform(t) for t in train_targets]
+            print("transformed targets", self.targets[:5])
             self.name = 'CelebA1000_train'
         else:
             self.dataset = Subset(celeba, test_idx)
@@ -243,11 +289,12 @@ class CustomCelebA(VisionDataset):
 
 
 # XY test
-
-
-#print("INSPECTION CELEBA1000")
-#inspection_set = CelebA1000(train=True)
 '''
+
+print("INSPECTION CELEBA1000")
+inspection_set = CelebA1000(train=True)
+
+
 #print(inspection_set[0])
 #_,idx = inspection_set[0]
 #print("idx: " + str(idx))
@@ -258,8 +305,8 @@ my_test = CustomCelebA(root='data/celeba',
                         target_type="attr")
 
 #print(my_test.attr_names)
-print(my_test.attr.shape)
-print(my_test[0])
+#print(my_test.attr.shape)
+print(my_test[949])
 
 _,attributes = my_test[3]
 print(attributes.shape)
@@ -268,4 +315,6 @@ print("INSPECTION CELAB A ATTRIBUTES CLASS")
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
 print(attr_test[0])
+print(attr_test[3])
+print(attr_test[1])
 
