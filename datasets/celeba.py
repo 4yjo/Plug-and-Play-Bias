@@ -30,18 +30,16 @@ class CelebA_Attributes(Dataset):
 
 
         celeba.targets=celeba.attr
-        
-        # get targets >> values for attribute indexed 2
-       # targets = np.array([t.item() for t in celeba.attr[:,2]])
-        #print("targets: ", targets[:10])
+      
+        attribute_index = 24
 
-        # filter for  feature 'Attractive' (indexed 2) 
+        # filter for  feature 'No_Beard' (indexed 24) 
         a2 = celeba.attr[:,2]>0
         #a4 = celeba.attr[:,4]>0
         
         # combine features with bitwise or operator
         #target_mask = a2 | a4
-        target_mask = a2
+        target_mask = celeba.attr[:,attribute_index]>0
 
         # get indices (can be visualized as the row numbers of items that fall into the target mask)
         pos_indices = np.where(target_mask)[0] # indices of images that have attribute
@@ -99,7 +97,6 @@ class CelebA_Attributes(Dataset):
         # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
-            #train_targets = np.array(targets)[train_idx]
             self.targets = np.array([targets_mapping[x] for x in train_idx])
             self.name = 'CelebA_Attributes_train'
         else:
@@ -310,7 +307,7 @@ print(my_test[949])
 
 _,attributes = my_test[3]
 print(attributes.shape)
-'''
+
 print("INSPECTION CELAB A ATTRIBUTES CLASS")
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
@@ -318,3 +315,4 @@ print(attr_test[0])
 print(attr_test[3])
 print(attr_test[1])
 
+'''
