@@ -7,7 +7,7 @@ model:
   pretrained: true # Using the ImageNet weights for initialization.
 
 dataset:
-  type: celeba_attributes # Select on of [facescrub, celeba_identities, celeba_attributes, stanford_dogs_cropped, stanford_dogs_uncropped].
+  type: celeba_attributes # Select one of [facescrub, celeba_identities, celeba_attributes, stanford_dogs_cropped, stanford_dogs_uncropped].
   #training_set_size: 2500 # Number of training samples. Delete to use all samples in the dataset.
   #validation_set_size: 0 # Absolute number validation samples taken from the training set.
   # validation_split_ratio: 0.2 # Alternative to validation_set_size, split is taken from the training set.
