@@ -391,6 +391,15 @@ class Classifier(BaseModel):
         # save the final model
         if validation_data:
             self.load_state_dict(best_model_values['model_state_dict'])
+        
+        # remove prefix caused by pytorch 2.x compile
+        for key in list(self.state_dict.keys()):
+            state_dict[key.replace("_orig_mod.", "")] = state_dict.pop(key)
+        print('removed prefix')
+
+        for key in list(optimizer.state_dict.keys()):
+            state_dict[key.replace("_orig_mod.", "")] = state_dict.pop(key)
+        print('removed prefix')
 
         if save_base_path:
             if not os.path.exists(save_base_path):
