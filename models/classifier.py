@@ -142,7 +142,7 @@ class Classifier(BaseModel):
             weights = inception.Inception_V3_Weights.DEFAULT if pretrained else None
             model = inception.inception_v3(weights=weights,
                                            aux_logits=True,
-                                           init_weights=False)
+                                           init_weights=False) #TODO maybe change back to True?
             if self.num_classes != model.fc.out_features:
                 # exchange the last layer to match the desired numbers of classes
                 model.fc = nn.Linear(model.fc.in_features, self.num_classes)

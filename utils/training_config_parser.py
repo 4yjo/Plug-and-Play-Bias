@@ -10,6 +10,7 @@ from rtpt.rtpt import RTPT
 from torchvision.datasets import *
 
 from datasets.celeba import CelebA1000
+from datasets.celeba import CelebA_Attributes
 from datasets.custom_subset import Subset
 from datasets.facescrub import FaceScrub
 from datasets.stanford_dogs import StanfordDogs
@@ -53,6 +54,10 @@ class TrainingConfigParser:
             train_set = CelebA1000(train=True)
             test_set = CelebA1000(train=False,
                                   transform=data_transformation_test)
+        elif name == 'celeba_attributes':
+            train_set = CelebA_Attributes(train=True)
+            test_set = CelebA_Attributes(train=False,
+                                    transform=data_transformation_test)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,
