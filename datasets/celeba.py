@@ -15,7 +15,7 @@ from torchvision.datasets.utils import verify_str_arg
 
 class CelebA_Attributes(Dataset):
     """ 
-    subset holding all pictures of the 1000 most frequent celebreties
+    subset holding pictures filtered by attributes
     """
     def __init__(self,
                  train,
@@ -31,40 +31,69 @@ class CelebA_Attributes(Dataset):
 
         celeba.targets=celeba.attr
       
-        attribute_index = 24
+        # provide index/indices for attributes - if more than one they will be bitwise or
+        attributes = [16,22,30]
 
-        # filter for  feature 'No_Beard' (indexed 24) 
-        a2 = celeba.attr[:,2]>0
-        #a4 = celeba.attr[:,4]>0
-        
-        # combine features with bitwise or operator
-        #target_mask = a2 | a4
-        target_mask = celeba.attr[:,attribute_index]>0
+        # choose if attribute should be negated
+        attr_negation = False # default is false
+
+
+        # get indices of image that are true for (all) attribute(s)
+        if (len(attributes) == 0):
+            raiseError('no attributes given to filter subset')
+        if (len(attributes) == 1):
+            attr_mask = celeba.attr[:,attributes[0]] > 0  # mask = simply take index of given attribute
+        if (len(attributes) > 1):
+            attr_x_indices = [] # array to store bool values for each attribute
+            for i in range(len(attributes)):
+                attr_x_indices.append(celeba.attr[:,attributes[i]] > 0)
+          
+            
+            attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
+            for i in range(len(attr_x_indices)):
+                attr_mask = attr_mask | attr_x_indices[i]
+    
+          
+           
 
         # get indices (can be visualized as the row numbers of items that fall into the target mask)
-        pos_indices = np.where(target_mask)[0] # indices of images that have attribute
-        neg_indices = np.where(~target_mask)[0] #indices of images that dont have attribute
-        neg_indices = neg_indices[:(len(pos_indices))] #make them the same size # TODO overthink distribution: is 50:50 always best?
-        print("indices of images that hold attr: ", pos_indices[:10])
-        print("amount pos ind: ",len(pos_indices))
 
-        print("indices of images that dont hold attr: ", neg_indices[:10])
-        print("amount neg ind: ",len(neg_indices))
+        if not attr_negation:
+            pos_indices = np.where(attr_mask)[0] # indices of images that have attribute
+            #print("pos indices: ", len(pos_indices))
+            neg_indices = np.where(~attr_mask)[0] #indices of images that dont have attribute
+            #print("neg_indices: ", len(neg_indices))
+        else:
+            pos_indices = np.where(~attr_mask)[0] # indices of images that have attribute
+            #print("pos indices: ", len(pos_indices))
+            neg_indices = np.where(attr_mask)[0] #indices of images that dont have attribute
+            #print("neg_indices: ", len(neg_indices))
+
+
+
+        if (len(neg_indices) > len(pos_indices)):
+            neg_indices = neg_indices[:len(pos_indices)] 
+        else:
+            pos_indices = pos_indices[:len(neg_indices)]
+
+        print("updated:")
+        print("pos indices: ", len(pos_indices))
+        print("neg_indices: ", len(neg_indices))
+
         indices = np.concatenate([pos_indices, neg_indices])
         
         # map targets and indices (before shuffeling)
         targets_mapping = {
-            indices[i]: 1 if i < len(pos_indices) else 0
+            indices[i]: 1 if i < len(pos_indices) else 0 
             for i in range(len(indices))
-}
+        }
+        '''
         print("targets_mapping: ")
         for key, value in list(targets_mapping.items())[:5]:
             print(f"{key}: {value}")
         for key, value in list(targets_mapping.items())[-5:]:
             print(f"{key}: {value}")
-
-        print("end")
-
+        '''
 
         np.random.seed(split_seed)
         np.random.shuffle(indices)
@@ -78,21 +107,6 @@ class CelebA_Attributes(Dataset):
         # Set transformations
         self.transform = transform
 
-        '''
-        # map indices so they are in consecutive order
-        index_mapping = {
-            indices[i]: i
-            for i in range(len(indices))
-            }
-        
-        print("index_mapping: ")
-        for key, value in list(index_mapping.items())[:5]:
-            print(f"{key}: {value}")
-        
-        # maps sorted_targets to indices 0,1,2,3,...
-        #self.target_transform = T.Lambda(lambda x: index_mapping[x])
-        '''
-       
 
         # Split dataset
         if train:
@@ -316,3 +330,5 @@ print(attr_test[3])
 print(attr_test[1])
 
 '''
+attr_test = CelebA_Attributes(train=True)
+print(len(attr_test))
