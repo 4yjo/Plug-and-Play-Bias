@@ -23,7 +23,6 @@ class AttackConfigParser:
 
     def create_target_model(self):
         if 'wandb_target_run' in self._config:
-            print("load model from wandb")
             model = load_model(self._config['wandb_target_run'])
         elif 'target_model' in self._config:
             config = self._config['target_model']
