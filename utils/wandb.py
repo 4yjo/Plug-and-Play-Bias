@@ -35,20 +35,11 @@ def load_model(run_path,
     file_model = wandb.restore(model_path,
                                run_path=run_path,
                                root='./weights',
-                               replace=replace)   #TODO is this storing model locally to access it in load weights from local file
-    print('model loaded:', file_model)
-
-    my_state_dict = torch.load(file_model.name, map_location='cpu')['model_state_dict']
-
-    for key in list(my_state_dict.keys()):
-        my_state_dict[key.replace("_orig_mod.", "")] = my_state_dict.pop(key)
-
+                               replace=replace)
 
     # Load weights from local file
     model.load_state_dict(
-        my_state_dict)
-
-    #TODO test if that still works with attack from local
+        torch.load(file_model.name, map_location='cpu')['model_state_dict'])
 
     model.wandb_name = run.name
 

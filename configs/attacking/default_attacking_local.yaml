@@ -1,23 +1,21 @@
 ---
 target_model:
-  architecture: resnet18 # architecture of target model
-  num_classes: 1000 # number of output neurons
-  #weights: results/resnet18_20240103_131121/Classifier_0.5844_no_val.pth # link to weight file
-  weights: /workspace/wandb/run-20240103_131123-oe5cjonv/files/results/resnet18_20240103_131121/Classifier_0.5844_no_val.pth
+  architecture: densenet169 # architecture of target model
+  num_classes: 530 # number of output neurons
+  weights: trained_models/facescrub/densenet169_facescrub.pt # link to weight file
 evaluation_model:
   architecture: inception-v3 # architecture of evaluation model
-  num_classes: 1000 # number of output neurons
-  #weights: trained_models/facescrub/inception_v3_facescrub.pt # link to weight file
-  weights: /workspace/wandb/run-20240103_135721-hu72cnh2/files/results/inceptionv3_20240103_135715/Classifier_0.8824_no_val.pth
+  num_classes: 530 # number of output neurons
+  weights: trained_models/facescrub/inception_v3_facescrub.pt # link to weight file
 
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
-dataset: celeba_identities # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
+dataset: facescrub # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
 
 candidates:
-  num_candidates: 20 # Number of latent vectors to optimize for each target.
+  num_candidates: 200 # Number of latent vectors to optimize for each target.
   candidate_search:
-    search_space_size: 200 # Set of randomly sampled latent vector, from which the candidates are selected.
+    search_space_size: 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
     horizontal_flip: true # Flip the generated images horizontally in 50% of the cases.
@@ -56,14 +54,14 @@ attack:
       gamma: 0.1
 
 final_selection:
-  samples_per_target: 5 # Number of samples to select from the set of optimized latent vectors.
+  samples_per_target: 50 # Number of samples to select from the set of optimized latent vectors.
   approach: transforms # Currently only transforms is available as an option.
   iterations: 100 # Number of iterations random transformations are applied.
 
 
 wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
+  enable_logging: false # Activate logging.
   wandb_init_args: # WandB init arguments.
     project: model_inversion_attacks
     save_code: true
-    name: attack_local
+    name: resnest101_facescrub
