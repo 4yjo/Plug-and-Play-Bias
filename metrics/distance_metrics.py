@@ -36,7 +36,17 @@ class DistanceEvaluation():
                                   train=True,
                                   transform=transform,
                                   split_seed=self.seed)
-        elif self.dataset_name == 'celeba_identities' or self.dataset_name == 'celeba_attributes':
+        elif self.dataset_name == 'celeba_attributes':
+            transform = T.Compose([
+                T.Resize(self.img_size, antialias=True),
+                T.ToTensor(),
+                T.CenterCrop((self.img_size, self.img_size)),
+                T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            ])
+            train_set = CelebA_Attributes(train=True,
+                                   transform=transform,
+                                   split_seed=self.seed)
+        elif self.dataset_name == 'celeba_identities':
             transform = T.Compose([
                 T.Resize(self.img_size, antialias=True),
                 T.ToTensor(),
