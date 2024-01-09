@@ -142,7 +142,7 @@ class Classifier(BaseModel):
             weights = inception.Inception_V3_Weights.DEFAULT if pretrained else None
             model = inception.inception_v3(weights=weights,
                                            aux_logits=True,
-                                           init_weights=False)
+                                           init_weights=False) #TODO maybe change back to True?
             if self.num_classes != model.fc.out_features:
                 # exchange the last layer to match the desired numbers of classes
                 model.fc = nn.Linear(model.fc.in_features, self.num_classes)
@@ -391,15 +391,6 @@ class Classifier(BaseModel):
         # save the final model
         if validation_data:
             self.load_state_dict(best_model_values['model_state_dict'])
-        
-        # remove prefix caused by pytorch 2.x compile
-        for key in list(self.state_dict.keys()):
-            state_dict[key.replace("_orig_mod.", "")] = state_dict.pop(key)
-        print('removed prefix')
-
-        for key in list(optimizer.state_dict.keys()):
-            state_dict[key.replace("_orig_mod.", "")] = state_dict.pop(key)
-        print('removed prefix')
 
         if save_base_path:
             if not os.path.exists(save_base_path):
