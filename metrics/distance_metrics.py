@@ -1,6 +1,7 @@
 import torch
 import torchvision.transforms as T
 from datasets.celeba import CelebA1000
+from datasets.celeba import CelebA_Attributes
 from datasets.custom_subset import SingleClassSubset
 from datasets.facescrub import FaceScrub
 from datasets.stanford_dogs import StanfordDogs
@@ -35,7 +36,7 @@ class DistanceEvaluation():
                                   train=True,
                                   transform=transform,
                                   split_seed=self.seed)
-        elif self.dataset_name == 'celeba_identities':
+        elif self.dataset_name == 'celeba_identities' or self.dataset_name == 'celeba_attributes':
             transform = T.Compose([
                 T.Resize(self.img_size, antialias=True),
                 T.ToTensor(),
@@ -57,7 +58,7 @@ class DistanceEvaluation():
                                      split_seed=self.seed)
         else:
             raise RuntimeError(
-                f'{self.dataset_name} is no valid dataset name. Chose of of [facescrub, celeba_identities, stanford_dogs].'
+                f'{self.dataset_name} is no valid dataset name. Chose of of [facescrub, celeba_identities, celeba_attributes, stanford_dogs].'
             )
 
         return train_set
