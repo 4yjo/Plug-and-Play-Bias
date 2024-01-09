@@ -3,11 +3,11 @@ seed: 42
 
 model:
   architecture: resnet18  # Model architecture, e.g., resnet50, densenet169, inceptionv3.
-  num_classes: 1000 # Number of classes in the training set.
+  num_classes: 2 # Number of classes in the training set.
   pretrained: true # Using the ImageNet weights for initialization.
 
 dataset:
-  type: celeba_identities # Select on of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
+  type: celeba_attributes # Select one of [facescrub, celeba_identities, celeba_attributes, stanford_dogs_cropped, stanford_dogs_uncropped].
   #training_set_size: 2500 # Number of training samples. Delete to use all samples in the dataset.
   #validation_set_size: 0 # Absolute number validation samples taken from the training set.
   # validation_split_ratio: 0.2 # Alternative to validation_set_size, split is taken from the training set.
@@ -40,7 +40,7 @@ lr_scheduler: # Option to provide a learning rate scheduler from torch.optim.
     gamma: 0.1
 
 training: # Select the training parameters.
-  num_epochs: 5
+  num_epochs: 10 #reset to 5
   batch_size: 128
   dataloader_num_workers: 8
   save_path: results/
@@ -53,9 +53,9 @@ wandb: # Options for WandB logging.
   enable_logging: true # Set to true to activate the logging.
   args: # Arguments for wandb.init call. See https://docs.wandb.ai/ref/python/init for a complete overview.
     project: model_inversion_targets
-    name: Test Fork Setup
+    name: Attribute Beard = Goatee OR..
     save_code: true
-    notes: Training to test set up
+    notes: 
     tags:
       - Some
       - Tags

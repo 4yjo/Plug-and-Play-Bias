@@ -12,7 +12,129 @@ import pandas
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import verify_str_arg
 
+
+class CelebA_Attributes(Dataset):
+    """ 
+    subset holding pictures filtered by attributes
+    """
+    def __init__(self,
+                 train,
+                 split_seed=42,
+                 transform=None,
+                 root='data/celeba',
+                 download: bool = False):
+        # Load default CelebA dataset
+        celeba = CustomCelebA(root=root,
+                        split='all',
+                        target_type="attr")
+
+
+        celeba.targets=celeba.attr
+      
+        # provide index/indices for attributes - if more than one they will be bitwise or
+        attributes = [16,22,30]
+
+        # choose if attribute should be negated
+        attr_negation = False # default is false
+
+
+        # get indices of image that are true for (all) attribute(s)
+        if (len(attributes) == 0):
+            raiseError('no attributes given to filter subset')
+        if (len(attributes) == 1):
+            attr_mask = celeba.attr[:,attributes[0]] > 0  # mask = simply take index of given attribute
+        if (len(attributes) > 1):
+            attr_x_indices = [] # array to store bool values for each attribute
+            for i in range(len(attributes)):
+                attr_x_indices.append(celeba.attr[:,attributes[i]] > 0)
+          
+            
+            attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
+            for i in range(len(attr_x_indices)):
+                attr_mask = attr_mask | attr_x_indices[i]
+    
+          
+           
+
+        # get indices (can be visualized as the row numbers of items that fall into the target mask)
+
+        if not attr_negation:
+            pos_indices = np.where(attr_mask)[0] # indices of images that have attribute
+            #print("pos indices: ", len(pos_indices))
+            neg_indices = np.where(~attr_mask)[0] #indices of images that dont have attribute
+            #print("neg_indices: ", len(neg_indices))
+        else:
+            pos_indices = np.where(~attr_mask)[0] # indices of images that have attribute
+            #print("pos indices: ", len(pos_indices))
+            neg_indices = np.where(attr_mask)[0] #indices of images that dont have attribute
+            #print("neg_indices: ", len(neg_indices))
+
+
+
+        if (len(neg_indices) > len(pos_indices)):
+            neg_indices = neg_indices[:len(pos_indices)] 
+        else:
+            pos_indices = pos_indices[:len(neg_indices)]
+
+        print("updated:")
+        print("pos indices: ", len(pos_indices))
+        print("neg_indices: ", len(neg_indices))
+
+        indices = np.concatenate([pos_indices, neg_indices])
+        
+        # map targets and indices (before shuffeling)
+        targets_mapping = {
+            indices[i]: 1 if i < len(pos_indices) else 0 
+            for i in range(len(indices))
+        }
+        '''
+        print("targets_mapping: ")
+        for key, value in list(targets_mapping.items())[:5]:
+            print(f"{key}: {value}")
+        for key, value in list(targets_mapping.items())[-5:]:
+            print(f"{key}: {value}")
+        '''
+
+        np.random.seed(split_seed)
+        np.random.shuffle(indices)
+        training_set_size = int(0.9 * len(indices))
+        train_idx = indices[:training_set_size]
+        test_idx = indices[training_set_size:]
+
+        # Assert that there are no overlapping datasets
+        assert len(set.intersection(set(train_idx), set(test_idx))) == 0
+
+        # Set transformations
+        self.transform = transform
+
+
+        # Split dataset
+        if train:
+            self.dataset = Subset(celeba, train_idx)
+            self.targets = np.array([targets_mapping[x] for x in train_idx])
+            self.name = 'CelebA_Attributes_train'
+        else:
+            self.dataset = Subset(celeba, test_idx)
+            self.targets = np.array([targets_mapping[x] for x in train_idx])
+            self.name = 'CelebA_Attributes_test'
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        im, _ = self.dataset[idx]
+        if self.transform:
+            return self.transform(im), self.targets[idx]
+        else:
+            return im, self.targets[idx]
+
+
+
+        
 class CelebA1000(Dataset):
+    """ 
+    subset holding all pictures of the 1000 most frequent celebreties
+    """
     def __init__(self,
                  train,
                  split_seed=42,
@@ -32,9 +154,14 @@ class CelebA1000(Dataset):
                    key=lambda item: item[1],
                    reverse=True))
         sorted_targets = list(ordered_dict.keys())[:1000]
+        print("targets: ", targets[:5])
+
 
         # Select the corresponding samples for train and test split
         indices = np.where(np.isin(targets, sorted_targets))[0]
+        print("indices ", indices)
+        print(len(indices))
+        
         np.random.seed(split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices))
@@ -51,13 +178,19 @@ class CelebA1000(Dataset):
             for i in range(len(sorted_targets))
         }
 
+        print("target_mapping: ")
+        for key, value in list(target_mapping.items())[:5]:
+            print(f"{key}: {value}")
+
         self.target_transform = T.Lambda(lambda x: target_mapping[x])
 
         # Split dataset
         if train:
             self.dataset = Subset(celeba, train_idx)
             train_targets = np.array(targets)[train_idx]
+            print("shuffeled train_targets", train_targets[:5])
             self.targets = [self.target_transform(t) for t in train_targets]
+            print("transformed targets", self.targets[:5])
             self.name = 'CelebA1000_train'
         else:
             self.dataset = Subset(celeba, test_idx)
@@ -164,3 +297,38 @@ class CustomCelebA(VisionDataset):
     def extra_repr(self) -> str:
         lines = ["Target type: {target_type}", "Split: {split}"]
         return '\n'.join(lines).format(**self.__dict__)
+
+
+# XY test
+'''
+
+print("INSPECTION CELEBA1000")
+inspection_set = CelebA1000(train=True)
+
+
+#print(inspection_set[0])
+#_,idx = inspection_set[0]
+#print("idx: " + str(idx))
+
+print("INSPECTION ATTRIBUTES BASE CLASS")
+my_test = CustomCelebA(root='data/celeba',
+                        split='all',
+                        target_type="attr")
+
+#print(my_test.attr_names)
+#print(my_test.attr.shape)
+print(my_test[949])
+
+_,attributes = my_test[3]
+print(attributes.shape)
+
+print("INSPECTION CELAB A ATTRIBUTES CLASS")
+attr_test = CelebA_Attributes(train=True)
+print(len(attr_test))
+print(attr_test[0])
+print(attr_test[3])
+print(attr_test[1])
+
+'''
+attr_test = CelebA_Attributes(train=True)
+print(len(attr_test))
