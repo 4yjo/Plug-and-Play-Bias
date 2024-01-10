@@ -75,10 +75,7 @@ class CelebA_Attributes(Dataset):
             neg_indices = neg_indices[:len(pos_indices)] 
         else:
             pos_indices = pos_indices[:len(neg_indices)]
-
-        print("updated:")
-        print("pos indices: ", len(pos_indices))
-        print("neg_indices: ", len(neg_indices))
+            
 
         indices = np.concatenate([pos_indices, neg_indices])
         
@@ -329,6 +326,6 @@ print(attr_test[0])
 print(attr_test[3])
 print(attr_test[1])
 
-'''
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
+'''

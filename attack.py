@@ -115,7 +115,7 @@ def main():
             + int(math.ceil(w.shape[0] / (batch_size * 3))) \
             + 2 * int(math.ceil(config.final_selection['samples_per_target'] * len(set(targets.cpu().tolist())) / (batch_size * 3))) \
             + 2 * len(set(targets.cpu().tolist()))
-        rtpt = RTPT(name_initials='LS',
+        rtpt = RTPT(name_initials='AM',
                     experiment_name='Model_Inversion',
                     max_iterations=max_iterations)
         rtpt.start()
@@ -215,8 +215,8 @@ def main():
         evaluation_model.eval()
         class_acc_evaluator = ClassificationAccuracy(evaluation_model,
                                                      device=device)
-
-        acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
+        # TODO add acc_top5
+        acc_top1, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
             w_optimized_unselected,
             targets,
             synthesis,
@@ -233,14 +233,17 @@ def main():
                 wandb.save(filename_precision)
             except:
                 pass
-        print(
-            f'\nUnfiltered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}',
-            f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
-        )
+        #print(
+        #    f'\nUnfiltered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}',
+        #    f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+        #)
+
+        print('unfiltered evaluation') #TODO change (see above)
 
         # Compute attack accuracy on filtered samples
         if config.final_selection:
-            acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
+            #acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
+            acc_top1, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
                 final_w,
                 final_targets,
                 synthesis,
@@ -254,10 +257,12 @@ def main():
                     precision_list)
                 wandb.save(filename_precision)
 
-            print(
-                f'Filtered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}, ',
-                f'accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
-            )
+            #print(
+            #    f'Filtered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}, ',
+            #    f'accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+            #)
+            #TODO uncomment print
+
         del evaluation_model
 
     except Exception:
@@ -458,8 +463,13 @@ def main():
                                   seed=config.seed)
 
         # Final logging
+        #final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
+        #                    acc_top5, avg_dist_facenet, avg_dist_inception,
+        #                    fid_score, precision, recall, density, coverage)
+        
+        # Final logging
         final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-                            acc_top5, avg_dist_facenet, avg_dist_inception,
+                            avg_dist_facenet, avg_dist_inception,
                             fid_score, precision, recall, density, coverage)
 
 
@@ -611,14 +621,14 @@ def log_final_images(imgs, predictions, max_confidences, target_confidences,
     wandb.log({'final_images': wand_imgs})
 
 
-def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, acc_top5,
+def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, 
                         avg_dist_facenet, avg_dist_eval, fid_score, precision,
-                        recall, density, coverage):
+                        recall, density, coverage): #TODO insert acc_top5
     wandb.save('attacks/gradient_based.py')
     wandb.run.summary['correct_avg_conf'] = avg_correct_conf
     wandb.run.summary['total_avg_conf'] = avg_total_conf
     wandb.run.summary['evaluation_acc@1'] = acc_top1
-    wandb.run.summary['evaluation_acc@5'] = acc_top5
+    #wandb.run.summary['evaluation_acc@5'] = acc_top5
     wandb.run.summary['avg_dist_facenet'] = avg_dist_facenet
     wandb.run.summary['avg_dist_evaluation'] = avg_dist_eval
     wandb.run.summary['fid_score'] = fid_score

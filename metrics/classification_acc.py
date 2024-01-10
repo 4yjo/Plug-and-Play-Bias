@@ -26,7 +26,7 @@ class ClassificationAccuracy():
         self.evaluation_network.to(self.device)
         dataset = TensorDataset(w, targets)
         acc_top1 = Accuracy()
-        acc_top5 = AccuracyTopK(k=5)
+        #acc_top5 = AccuracyTopK(k=5)
         predictions = []
         correct_confidences = []
         total_confidences = []
@@ -48,7 +48,7 @@ class ClassificationAccuracy():
                 output = self.evaluation_network(imgs)
 
                 acc_top1.update(output, target_batch)
-                acc_top5.update(output, target_batch)
+                #acc_top5.update(output, target_batch)
 
                 pred = torch.argmax(output, dim=1)
                 predictions.append(pred)
@@ -61,7 +61,7 @@ class ClassificationAccuracy():
                 maximum_confidences.append(torch.max(confidences, dim=1)[0])
 
             acc_top1 = acc_top1.compute_metric()
-            acc_top5 = acc_top5.compute_metric()
+            #acc_top5 = acc_top5.compute_metric()
             correct_confidences = torch.cat(correct_confidences, dim=0)
             avg_correct_conf = correct_confidences.mean().cpu().item()
             confidences = torch.cat(total_confidences, dim=0).cpu()
@@ -91,5 +91,5 @@ class ClassificationAccuracy():
                     subtitle=
                     f'Classification Evaluation step {step} of {max_iter}')
 
-        return acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, \
-            confidences, maximum_confidences, precision_list
+        return acc_top1, predictions, avg_correct_conf, avg_total_conf, \
+            confidences, maximum_confidences, precision_list #TODO add acc_top5 for multiclass problems

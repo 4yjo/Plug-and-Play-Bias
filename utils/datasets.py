@@ -9,7 +9,7 @@ from torch.utils.data import random_split
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 
-from datasets.celeba import CelebA1000
+from datasets.celeba import CelebA1000, CelebA_Attributes
 from datasets.facescrub import FaceScrub
 from datasets.stanford_dogs import StanfordDogs
 
@@ -90,6 +90,8 @@ def create_target_dataset(dataset_name, transform):
         return FaceScrub(group='all',
                          train=True,
                          transform=transform)
+    elif dataset_name.lower() == 'celeba_attributes':
+        return CelebA_Attributes(train=True, transform=transform)
     elif dataset_name.lower() == 'celeba_identities':
         return CelebA1000(train=True, transform=transform)
     elif 'stanford_dogs' in dataset_name.lower():

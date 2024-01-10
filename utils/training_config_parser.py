@@ -9,8 +9,7 @@ from models.classifier import Classifier
 from rtpt.rtpt import RTPT
 from torchvision.datasets import *
 
-from datasets.celeba import CelebA1000
-from datasets.celeba import CelebA_Attributes
+from datasets.celeba import CelebA1000, CelebA_Attributes
 from datasets.custom_subset import Subset
 from datasets.facescrub import FaceScrub
 from datasets.stanford_dogs import StanfordDogs
