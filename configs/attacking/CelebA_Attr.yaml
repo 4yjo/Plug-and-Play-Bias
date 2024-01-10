@@ -17,8 +17,8 @@ candidates:
 
 attack:
   batch_size: 25 # Batch size per GPU.
-  num_epochs: 50  # Number of optimization iterations per batch.
-  targets: all # Specify the targeted classes, either a single class index, a list of indices, or all.
+  num_epochs: 10 #TODO set back to 50  # Number of optimization iterations per batch.
+  targets: 1 # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].
@@ -46,9 +46,9 @@ attack:
       gamma: 0.1
 
 final_selection:
-  samples_per_target: 50  # Number of samples to select from the set of optimized latent vectors.
+  samples_per_target: 5 #TODO set back to 50  # Number of samples to select from the set of optimized latent vectors.
   approach: transforms # Currently only transforms is available as an option.
-  iterations: 100  # Number of iterations random transformations are applied.
+  iterations: 10 #TODO set back to 100  # Number of iterations random transformations are applied.
 
 
 wandb: # Options for WandB logging.
