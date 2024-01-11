@@ -30,6 +30,7 @@ plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
 plt.xlabel('Attribute')
 plt.ylabel('Number of Samples')
 plt.title('Sample Distribution of CelebA by Attributes')
+plt.tight_layout()
 plt.savefig('sample_distribution_plot.png')
 plt.show()
 

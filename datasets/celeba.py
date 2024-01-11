@@ -32,7 +32,7 @@ class CelebA_Attributes(Dataset):
         celeba.targets=celeba.attr
       
         # provide index/indices for attributes - if more than one they will be bitwise or
-        attributes = [16,22,30]
+        attributes = [22] #goatie 16, mustache 22, no_beard 24, sideburns 30
 
         # choose if attribute should be negated
         attr_negation = False # default is false
