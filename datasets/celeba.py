@@ -12,7 +12,6 @@ import pandas
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import verify_str_arg
 
-
 class CelebA_Attributes(Dataset):
     """ 
     subset holding pictures filtered by attributes
@@ -26,51 +25,43 @@ class CelebA_Attributes(Dataset):
         # Load default CelebA dataset
         celeba = CustomCelebA(root=root,
                         split='all',
-                        target_type="attr")
+                        target_type='attr')
 
 
         celeba.targets=celeba.attr
       
         # provide index/indices for attributes - if more than one they will be bitwise or
-        attributes = [22] #goatie 16, mustache 22, no_beard 24, sideburns 30
+        attributes = [16,22,30] #goatie 16, mustache 22, no_beard 24, sideburns 30
 
         # choose if attribute should be negated
         attr_negation = False # default is false
 
-
+          
         # get indices of image that are true for (all) attribute(s)
         if (len(attributes) == 0):
-            raiseError('no attributes given to filter subset')
+            raise ValueError('no attributes given to filter subset')
         if (len(attributes) == 1):
             attr_mask = celeba.attr[:,attributes[0]] > 0  # mask = simply take index of given attribute
         if (len(attributes) > 1):
             attr_x_indices = [] # array to store bool values for each attribute
             for i in range(len(attributes)):
                 attr_x_indices.append(celeba.attr[:,attributes[i]] > 0)
-          
-            
-            attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
-            for i in range(len(attr_x_indices)):
-                attr_mask = attr_mask | attr_x_indices[i]
+        
     
-          
-           
+        attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
+        for i in range(len(attr_x_indices)):
+            attr_mask = attr_mask | attr_x_indices[i]
+      
 
         # get indices (can be visualized as the row numbers of items that fall into the target mask)
-
         if not attr_negation:
             pos_indices = np.where(attr_mask)[0] # indices of images that have attribute
-            #print("pos indices: ", len(pos_indices))
             neg_indices = np.where(~attr_mask)[0] #indices of images that dont have attribute
-            #print("neg_indices: ", len(neg_indices))
         else:
             pos_indices = np.where(~attr_mask)[0] # indices of images that have attribute
-            #print("pos indices: ", len(pos_indices))
             neg_indices = np.where(attr_mask)[0] #indices of images that dont have attribute
-            #print("neg_indices: ", len(neg_indices))
 
-
-
+        # balance samples 50:50
         if (len(neg_indices) > len(pos_indices)):
             neg_indices = neg_indices[:len(pos_indices)] 
         else:
@@ -84,13 +75,13 @@ class CelebA_Attributes(Dataset):
             indices[i]: 1 if i < len(pos_indices) else 0 
             for i in range(len(indices))
         }
-        '''
+        
         print("targets_mapping: ")
         for key, value in list(targets_mapping.items())[:5]:
             print(f"{key}: {value}")
         for key, value in list(targets_mapping.items())[-5:]:
             print(f"{key}: {value}")
-        '''
+        
 
         np.random.seed(split_seed)
         np.random.shuffle(indices)
@@ -112,7 +103,7 @@ class CelebA_Attributes(Dataset):
             self.name = 'CelebA_Attributes_train'
         else:
             self.dataset = Subset(celeba, test_idx)
-            self.targets = np.array([targets_mapping[x] for x in train_idx])
+            self.targets = np.array([targets_mapping[x] for x in test_idx])
             self.name = 'CelebA_Attributes_test'
 
     def __len__(self):
@@ -329,3 +320,4 @@ print(attr_test[1])
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
 '''
+attr_test = CelebA_Attributes(train=True)
