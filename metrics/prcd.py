@@ -28,6 +28,7 @@ class PRCD:
             self.inception_model = inception_model
         self.inception_model.to(self.device)
         
+          
     def compute_metric(self, num_classes, k=3, rtpt=None):
         precision_list = []
         recall_list = []

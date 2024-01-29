@@ -63,26 +63,27 @@ class CelebA_Attributes(Dataset):
 
        
         # balance samples 50:50
-        #if (len(neg_indices) > len(pos_indices)):
-         #   neg_indices = neg_indices[:len(pos_indices)] 
-        #else:
-         #   pos_indices = pos_indices[:len(neg_indices)]
+        if (len(neg_indices) > len(pos_indices)):
+            neg_indices = neg_indices[:len(pos_indices)] 
+        else:
+            pos_indices = pos_indices[:len(neg_indices)]
 
         #splits 
         # pos samples should all be used, make up 10 percent of total samples
         #neg_indices = neg_indices[:len(pos_indices)*9]
 
         #max nr of samples --> 100% pos
-        total_samples = len(pos_indices)
+        #total_samples = len(pos_indices)
 
-        share = 0.1 #pos samples => holding the attribute
+       # share = 0 #pos samples => holding the attribute
         
-        pos_indices = pos_indices[:(total_samples*share)]
-        neg_indices = neg_indices[:(total_samples*(1-share))]
+       # pos_indices = pos_indices[:int(total_samples*share)]
+       # neg_indices = neg_indices[:int(total_samples*(1-share))]
+       
         indices = np.concatenate([pos_indices, neg_indices])
-        print('Pos Samples: ', len(pos_indices))
-        print('Neg Samples: ', len(neg_indices))
-        print('All Samples: ', len(indices))
+       # print('Pos Samples: ', len(pos_indices))
+       # print('Neg Samples: ', len(neg_indices))
+       # print('All Samples: ', len(indices))
         
         # map targets and indices (before shuffeling)
         targets_mapping = {
