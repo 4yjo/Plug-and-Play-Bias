@@ -89,10 +89,10 @@ def get_images(run, image_location):
 
         G = load_generator(stylegan_model)
         #D = load_discrimator(config.stylegan_model)
-        #num_ws = G.num_ws # ?
+        num_ws = G.num_ws # ?
 
         synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-        #synthesis.num_ws = num_ws
+        synthesis.num_ws = num_ws
         #discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
 
         # make local directory to store generated images
@@ -101,8 +101,13 @@ def get_images(run, image_location):
 
         for file in run.files():
             if file.name.startswith("results/optimized_w_selected"):    
-                w = file.download(exist_ok=True) #wandb only downloads if file does not already exist
+                w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
                 print('weights downloaded')
+        
+                w = torch.load(w_file.name) #loads tensor from file 
+                print(w.shape)
+
+                # TODO put weights in right format
                 img = create_image(w,
                             synthesis,
                             #crop_size=config.attack_center_crop,
@@ -133,6 +138,7 @@ def identify_attributes():
         print("IMAGE ", str(i), probs)
 
         # TODO log to wandb
+        # TODO throw error if no images in the folder
 
 
 if __name__ == '__main__':
