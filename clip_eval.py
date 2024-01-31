@@ -2,9 +2,7 @@ from PIL import Image
 import random
 import numpy as np
 import torch
-#import torch_utils
-#import pickle
-#import dnnlib
+
 
 import wandb
 from rtpt import RTPT
@@ -41,26 +39,24 @@ def main():
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    
-    #image = Image.open("/workspace/media_images_final_images_0_d263f1d46c6d5902de56.png")
-
-
-    # Create and start RTPT object
-    #rtpt = config.create_rtpt()
-    #rtpt.start()
-
     image_location = 'wandb-weights' # local, wandb-media, wandb-weights
     get_images(run, image_location)
 
     # TODO übergebe prompt und image folder
     #identify_attributes()
 
+    # Create and start RTPT object
+    #rtpt = config.create_rtpt()
+    #rtpt.start()
+
+    # TODO wandblog
+
 
 def get_images(run, image_location):
     if (image_location == 'local'):
         print('using locally stored images for CLIP evaluation')
         pass 
-        # TODO maybe double check path
+        # TODO test - maybe double check path
     
     elif (image_location == 'wandb-media'):
         print('using images on wandb run for CLIP evaluation')
@@ -75,11 +71,8 @@ def get_images(run, image_location):
 
     elif (image_location == 'wandb-weights'):
         print('using wandb weight vector to generate images for CLIP evaluation')
-        # if image is not stored on wandb: get weights from run and create image using pretrained stylegan
-       
-       # Load pre-trained StyleGan2 components to generate images if they don't already exist
-        #G = load_generator(config.stylegan_model)
-
+        # Load pre-trained StyleGan2 components to generate images if they don't already exist
+        #TODO: put in config
         stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl"
 
         # Set devices
@@ -87,18 +80,19 @@ def get_images(run, image_location):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         gpu_devices = [i for i in range(torch.cuda.device_count())]
 
-        G = load_generator(stylegan_model)
-        #D = load_discrimator(config.stylegan_model)
-        num_ws = G.num_ws # ?
-
-        synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-        synthesis.num_ws = num_ws
-        #discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
-
         # make local directory to store generated images
         outdir = "media/images"
         os.makedirs(outdir, exist_ok=True)
 
+        G = load_generator(stylegan_model)
+        #G = load_generator(config.stylegan_model)
+        num_ws = G.num_ws # ?
+
+        # initialize synthesis network to generate image from given w
+        synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
+        synthesis.num_ws = num_ws
+
+        # get optimized w from wandb attack run
         for file in run.files():
             if file.name.startswith("results/optimized_w_selected"):    
                 w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
@@ -107,19 +101,21 @@ def get_images(run, image_location):
                 w = torch.load(w_file.name) #loads tensor from file 
                 print(w.shape)
 
-                # TODO put weights in right format
+                # re-generate image 
                 img = create_image(w,
                             synthesis,
-                            #crop_size=config.attack_center_crop,
-                            #resize=config.attack_resize)
-                            crop_size= 800,
-                            resize= 224)
-                print("IMAGE CREATED")  
-                # PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}.png')
-                # TODO double-check image saving > numpy permute as in attack
-                # print("IMAGE SAVED")
+                            crop_size= 800, #crop_size=config.attack_center_crop, #TODO put in config
+                            resize= 224) #resize=config.attack_resize) #TODO put in config
 
-            
+                print('img',img.shape)
+
+                #convert to numpy array and permute order from batch, channel, hight, width to batch, height, width,channel
+                img_np = img.permute(0,2,3,1).cpu().numpy() 
+                print('img_np', img_np.shape)
+
+                #PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}.png')
+                Image.fromarray(img_np[40], 'RGB').save(f'{outdir}/test.png')
+                print("IMAGE SAVED") 
 
 def identify_attributes():
     # TODO take prompts from config file
