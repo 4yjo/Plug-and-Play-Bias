@@ -1,46 +1,72 @@
+import argparse
+
 from PIL import Image
-import random
 import numpy as np
 import torch
+import torchvision
 
 
 import wandb
 from rtpt import RTPT
 
-from transformers import CLIPProcessor, CLIPModel
+#from transformers import CLIPProcessor, CLIPModel
  
 from utils.stylegan import create_image, load_discrimator, load_generator
+from utils.wandb import load_model
 import os
 from os import listdir
 
 
 def main():
-   
+    # Set devices
+    torch.set_num_threads(24)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    gpu_devices = [i for i in range(torch.cuda.device_count())]
 
-    # Define and parse attack arguments
-    # TODO parser = create_parser()
-    # TODO config, args = parse_arguments(parser)
 
     # Set seeds
-    #torch.manual_seed(42)
+    torch.manual_seed(42)
     # TODO torch.manual_seed(config.seed)
-
-    #random.seed(config.seed)
-    #np.random.seed(config.seed)
-
-    random.seed(42)
-    np.random.seed(42)
-    
 
     api = wandb.Api(timeout=60)
     run = api.run("model_inversion_attacks/ga0mt8yu")
 
     # Load CLIP 
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+   # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+   # processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+
+    # make local directory to store generated images
+    outdir = "media/images"
+    os.makedirs(outdir, exist_ok=True)
+
 
     image_location = 'wandb-weights' # local, wandb-media, wandb-weights
-    get_images(run, image_location)
+    # TODO get_images(run, image_location)
+
+    print('using wandb weight vector to generate images for CLIP evaluation')
+    # Load pre-trained StyleGan2 components to generate images if they don't already exist
+    stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl" #TODO: put in config
+    G = load_generator(stylegan_model) # TODO G = load_generator(config.stylegan_model)
+
+    synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
+    synthesis.num_ws = G.num_ws
+
+    synthesis.eval()
+    
+    w = load_w_from_wandb(run, synthesis)
+    print('wshape', w.shape)
+
+    x = synthesis(w, noise_mode='const', force_fp32=True)
+
+    # save image
+    torchvision.utils.save_image(x[0], f'{outdir}/test2.png')
+   # img = x.permute(0,2,3,1).cpu().numpy() 
+   # print('img_np', img.shape)
+
+    # Generate png with PIL Image
+    #Image.fromarray(img[0], 'RGB').save(f'{outdir}/test.png')
+    
 
     # TODO übergebe prompt und image folder
     #identify_attributes()
@@ -51,6 +77,24 @@ def main():
 
     # TODO wandblog
 
+def load_w_from_wandb(run, generator):
+    # get optimized w from wandb attack run
+    for file in run.files():
+        if file.name.startswith("results/optimized_w_selected"):    
+            w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
+            print('weights downloaded')
+            
+            w = torch.load(w_file.name).cuda() #loads tensor from file 
+            print(w.shape)
+
+            # copy data to match dimensions
+            if w.shape[1] == 1:
+                w_expanded = torch.repeat_interleave(w,
+                                                repeats=generator.num_ws,
+                                                dim=1)
+            else: 
+                w_expanded = w
+    return w_expanded
 
 def get_images(run, image_location):
     if (image_location == 'local'):
@@ -73,25 +117,22 @@ def get_images(run, image_location):
         print('using wandb weight vector to generate images for CLIP evaluation')
         # Load pre-trained StyleGan2 components to generate images if they don't already exist
         #TODO: put in config
+       
         stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl"
-
-        # Set devices
-        torch.set_num_threads(24)
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        gpu_devices = [i for i in range(torch.cuda.device_count())]
-
-        # make local directory to store generated images
-        outdir = "media/images"
-        os.makedirs(outdir, exist_ok=True)
 
         G = load_generator(stylegan_model)
         #G = load_generator(config.stylegan_model)
         num_ws = G.num_ws # ?
 
-        # initialize synthesis network to generate image from given w
-        synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-        synthesis.num_ws = num_ws
+        synthesis = G.synthesis
+        synthesis.eval()
 
+
+        # make local directory to store generated images
+        outdir = "media/images"
+        os.makedirs(outdir, exist_ok=True)
+
+       
         # get optimized w from wandb attack run
         for file in run.files():
             if file.name.startswith("results/optimized_w_selected"):    
@@ -101,22 +142,63 @@ def get_images(run, image_location):
                 w = torch.load(w_file.name) #loads tensor from file 
                 print(w.shape)
 
-                # re-generate image 
-                img = create_image(w,
-                            synthesis,
-                            crop_size= 800, #crop_size=config.attack_center_crop, #TODO put in config
-                            resize= 224) #resize=config.attack_resize) #TODO put in config
+                if w.shape[1] == 1:
+                    w_expanded = torch.repeat_interleave(w,
+                                                 repeats=synthesis.num_ws,
+                                                 dim=1)
+                else: 
+                    w_expanded = w
 
-                print('img',img.shape)
+                x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
+
+                img = x.permute(0,2,3,1).cpu().numpy() 
+                print('img_np', img.shape)
+
+                Image.fromarray(img[0], 'RGB').save(f'{outdir}/test.png')
+    
+
+
+
+                #print('generatored')
+
+                #? also load targets? see https://github.com/LukasStruppek/Plug-and-Play-Attacks/blob/master/datasets/attack_latents.py#L8
+
+                # re-generate image 
+                #img = create_image(w,
+                #            synthesis,
+                #            crop_size= 800, #crop_size=config.attack_center_crop, #TODO put in config
+                #            resize= 224) #resize=config.attack_resize) #TODO put in config
+
+                #print('img',img.shape)
 
                 #convert to numpy array and permute order from batch, channel, hight, width to batch, height, width,channel
-                img_np = img.permute(0,2,3,1).cpu().numpy() 
-                print('img_np', img_np.shape)
+                #img_np = img.permute(0,2,3,1).cpu().numpy() 
+               # print('img_np', img_np.shape)
 
                 #PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}.png')
-                Image.fromarray(img_np[40], 'RGB').save(f'{outdir}/test.png')
-                print("IMAGE SAVED") 
+                #Image.fromarray(img_np[0], 'RGB').save(f'{outdir}/test.png')
+                #print("IMAGE SAVED") 
 
+         
+    
+
+def model_using_pretrained_stylegan():
+    stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl"
+
+    G = load_generator(stylegan_model).device()
+    #G = load_generator(config.stylegan_model)
+    num_ws = G.num_ws # ?
+
+    synthesis = G.synthesis
+    synthesis.eval()
+
+
+    # initialize synthesis network to generate image from given w
+    #synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
+    #synthesis.num_ws = num_ws
+
+    return synthesis, synthesis.num_ws
+'''
 def identify_attributes():
     # TODO take prompts from config file
     prompts = ["a photo of a person without beard", "a photo of a person with beard"]
@@ -135,7 +217,7 @@ def identify_attributes():
 
         # TODO log to wandb
         # TODO throw error if no images in the folder
-
+        '''
 
 if __name__ == '__main__':
     main()
