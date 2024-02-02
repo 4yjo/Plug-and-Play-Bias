@@ -4,6 +4,10 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
 
+image_location: 'local' # 'local' if images already downloaded to media/images, 
+                                # 'wandb-media' to download from run, 
+                                # 'wandb-weights' to generate from weight vector if media is not stored on wandb
+
 
 #prompts
 

@@ -16,11 +16,6 @@ import os
 
 
 def main():
-    # Set devices
-    torch.set_num_threads(24)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    gpu_devices = [i for i in range(torch.cuda.device_count())]
-
     # Define and parse attack arguments
     parser = create_parser()
     config, args = parse_arguments(parser)
@@ -42,28 +37,15 @@ def main():
     os.makedirs(outdir, exist_ok=True)
 
 
-    image_location = 'wandb-weights' # local, wandb-media, wandb-weights
-    # TODO get_images(run, image_location)
+    image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
 
-    print('using wandb weight vector to generate images for CLIP evaluation')
-    # Load pre-trained StyleGan2 components to generate images if they don't already exist
+    if (image_location == 'wandb-weights'):
+        #load stylegan
+        G = load_generator(config.stylegan_model)
+    else:
+        G = None
 
-    #stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl" #TODO: put in config
-    G = load_generator(config.stylegan_model)
-
-    synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-    synthesis.num_ws = G.num_ws
-
-    synthesis.eval()
-    
-    w = load_w_from_wandb(run, synthesis)
-    print('wshape', w.shape)
-
-    x = synthesis(w, noise_mode='const', force_fp32=True)
-
-    # save image
-    torchvision.utils.save_image(x[0], f'{outdir}/test2.png')
-
+    get_images(run, image_location, G)
 
     # TODO übergebe prompt und image folder
     #identify_attributes()
@@ -73,7 +55,7 @@ def main():
     rtpt.start()
 
     # TODO wandblog
-
+'''
 def load_w_from_wandb(run, generator):
     # get optimized w from wandb attack run
     for file in run.files():
@@ -92,79 +74,72 @@ def load_w_from_wandb(run, generator):
             else: 
                 w_expanded = w
     return w_expanded
-
-def get_images(run, image_location):
+'''
+def get_images(run, image_location, G=None):
+    #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
         print('using locally stored images for CLIP evaluation')
-        pass 
-        # TODO test - maybe double check path
+        if os.path.exists("media/images"):
+            c = len([f for f in os.listdir("media/images")])
+            print("found ", str(c), " images locally in media/images")
+        else: 
+            raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
+        
     
     elif (image_location == 'wandb-media'):
         print('using images on wandb run for CLIP evaluation')
         # if image is stored on wandb: download it to local file
-        c = 1
+        c = 0
         for file in run.files():
             if file.name.startswith("media/images/final_"):  
                 file.download(exist_ok=True) #wandb only downloads if file does not already exist
                 c +=1
-            # TODO throw error if no file found
+            else:
+                raise FileNotFoundError(f"The images are not found on wandb. Use wandb-weights instead")
         print("downloaded ", str(c), " images from wandb")
 
     elif (image_location == 'wandb-weights'):
         print('using wandb weight vector to generate images for CLIP evaluation')
         # Load pre-trained StyleGan2 components to generate images if they don't already exist
-        #TODO: put in config
        
-        stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl"
-
-        G = load_generator(stylegan_model)
-        #G = load_generator(config.stylegan_model)
-        num_ws = G.num_ws # ?
-
-        synthesis = G.synthesis
-        synthesis.eval()
-
-
         # make local directory to store generated images
         outdir = "media/images"
         os.makedirs(outdir, exist_ok=True)
 
-       
-        # get optimized w from wandb attack run
+         # Set devices
+        torch.set_num_threads(24)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        gpu_devices = [i for i in range(torch.cuda.device_count())]
+
+        synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
+        synthesis.num_ws = G.num_ws
+
+        synthesis.eval()
+        
+        # get weights from wandb
         for file in run.files():
             if file.name.startswith("results/optimized_w_selected"):    
                 w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
                 print('weights downloaded')
-        
-                w = torch.load(w_file.name) #loads tensor from file 
+                
+                w = torch.load(w_file.name).cuda() #loads tensor from file 
                 print(w.shape)
 
+                # copy data to match dimensions
                 if w.shape[1] == 1:
                     w_expanded = torch.repeat_interleave(w,
-                                                 repeats=synthesis.num_ws,
-                                                 dim=1)
+                                                    repeats=synthesis.num_ws,
+                                                    dim=1)
                 else: 
                     w_expanded = w
+    
+        x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
 
-                x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
+        # save image
+        torchvision.utils.save_image(x[0], f'{outdir}/test.png') # TODO name images correct
+
     
 
-def model_using_pretrained_stylegan():
-    stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl"
-
-    G = load_generator(stylegan_model).device()
-    #G = load_generator(config.stylegan_model)
-    num_ws = G.num_ws # ?
-
-    synthesis = G.synthesis
-    synthesis.eval()
-
-
-    # initialize synthesis network to generate image from given w
-    #synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-    #synthesis.num_ws = num_ws
-
-    return synthesis, synthesis.num_ws
 '''
 def identify_attributes():
     # TODO take prompts from config file
