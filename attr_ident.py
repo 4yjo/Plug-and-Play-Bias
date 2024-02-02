@@ -8,7 +8,7 @@ from rtpt import RTPT
 from utils.attr_ident_config_parser import AttrIdentConfigParser
 
 from transformers import CLIPProcessor, CLIPModel
- 
+from PIL import Image
 from utils.stylegan import load_generator
 #from utils.wandb import load_model
 import os
@@ -31,12 +31,6 @@ def main():
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-
-    # make local directory to store generated images
-    outdir = "media/images"
-    os.makedirs(outdir, exist_ok=True)
-
-
     image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
 
     if (image_location == 'wandb-weights'):
@@ -47,34 +41,19 @@ def main():
 
     get_images(run, image_location, G)
 
+    attribute = config.attribute 
+    prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+
     # TODO übergebe prompt und image folder
-    #identify_attributes()
+    identify_attributes(prompts, processor, model)
 
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
 
     # TODO wandblog
-'''
-def load_w_from_wandb(run, generator):
-    # get optimized w from wandb attack run
-    for file in run.files():
-        if file.name.startswith("results/optimized_w_selected"):    
-            w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
-            print('weights downloaded')
-            
-            w = torch.load(w_file.name).cuda() #loads tensor from file 
-            print(w.shape)
 
-            # copy data to match dimensions
-            if w.shape[1] == 1:
-                w_expanded = torch.repeat_interleave(w,
-                                                repeats=generator.num_ws,
-                                                dim=1)
-            else: 
-                w_expanded = w
-    return w_expanded
-'''
+
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
@@ -100,7 +79,6 @@ def get_images(run, image_location, G=None):
 
     elif (image_location == 'wandb-weights'):
         print('using wandb weight vector to generate images for CLIP evaluation')
-        # Load pre-trained StyleGan2 components to generate images if they don't already exist
        
         # make local directory to store generated images
         outdir = "media/images"
@@ -111,6 +89,7 @@ def get_images(run, image_location, G=None):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         gpu_devices = [i for i in range(torch.cuda.device_count())]
 
+        # initialize stylegan syntezesis network 
         synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
         synthesis.num_ws = G.num_ws
 
@@ -134,32 +113,36 @@ def get_images(run, image_location, G=None):
                     w_expanded = w
     
         x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
-
+        print(x.shape)
         # save image
-        torchvision.utils.save_image(x[0], f'{outdir}/test.png') # TODO name images correct
+        for i in range(x.shape[0]):
+            torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
     
 
-'''
-def identify_attributes():
-    # TODO take prompts from config file
-    prompts = ["a photo of a person without beard", "a photo of a person with beard"]
 
+def identify_attributes(prompts,clip_processor, clip_model):
+    # TODO take prompts from config file
+    print(prompts[0])
+    #img_probability = []
     #automatic evaluation of all images saved to local folder
     for i in os.listdir("media/images"):
         image = Image.open("media/images/" + str(i))
 
-        inputs = processor(text=prompts, images=image, return_tensors="pt", padding=True) #process using CLIP
+        inputs = clip_processor(text=prompts, images=image, return_tensors="pt", padding=True) #process using CLIP
 
-        outputs = model(**inputs)
+        outputs = clip_model(**inputs)
         logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
         probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
         #print(logits_per_image[0])
-        print("IMAGE ", str(i), probs)
-
+        print(f"probability = {probs[0][0]:.2f}")
+              
+        #wandb.save()
+    #img_probability.append(probs)
 
         # TODO throw error if no images in the folder
-        '''
+    #return img_probability
+       
 
 def create_parser():
     parser = argparse.ArgumentParser(

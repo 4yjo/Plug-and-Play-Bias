@@ -8,8 +8,6 @@ class AttrIdentConfigParser:
             config = yaml.safe_load(file)
         self._config = config
 
-    
-    #TODO prompts
 
     def create_rtpt(self):
         rtpt_config = self._config['rtpt']
@@ -25,6 +23,10 @@ class AttrIdentConfigParser:
     @property
     def image_location(self):
         return self._config['image_location']
+    
+    @property
+    def attribute(self):
+        return self._config['attribute']
 
     @property
     def stylegan_model(self):
