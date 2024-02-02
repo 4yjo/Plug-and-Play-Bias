@@ -1,20 +1,18 @@
 import argparse
-
-from PIL import Image
-import numpy as np
 import torch
 import torchvision
 
 
 import wandb
 from rtpt import RTPT
+from utils.attr_ident_config_parser import AttrIdentConfigParser
 
-#from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel
  
-from utils.stylegan import create_image, load_discrimator, load_generator
-from utils.wandb import load_model
+from utils.stylegan import load_generator
+#from utils.wandb import load_model
 import os
-from os import listdir
+#from os import listdir
 
 
 def main():
@@ -23,17 +21,20 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
+    # Define and parse attack arguments
+    parser = create_parser()
+    config, args = parse_arguments(parser)
 
     # Set seeds
-    torch.manual_seed(42)
-    # TODO torch.manual_seed(config.seed)
+    #torch.manual_seed(42)
+    torch.manual_seed(config.seed)
 
     api = wandb.Api(timeout=60)
-    run = api.run("model_inversion_attacks/ga0mt8yu")
+    run = api.run(config.wandb_attack_run)
 
     # Load CLIP 
-   # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-   # processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 
     # make local directory to store generated images
@@ -46,8 +47,9 @@ def main():
 
     print('using wandb weight vector to generate images for CLIP evaluation')
     # Load pre-trained StyleGan2 components to generate images if they don't already exist
-    stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl" #TODO: put in config
-    G = load_generator(stylegan_model) # TODO G = load_generator(config.stylegan_model)
+
+    #stylegan_model = "stylegan2-ada-pytorch/ffhq.pkl" #TODO: put in config
+    G = load_generator(config.stylegan_model)
 
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = G.num_ws
@@ -61,19 +63,14 @@ def main():
 
     # save image
     torchvision.utils.save_image(x[0], f'{outdir}/test2.png')
-   # img = x.permute(0,2,3,1).cpu().numpy() 
-   # print('img_np', img.shape)
 
-    # Generate png with PIL Image
-    #Image.fromarray(img[0], 'RGB').save(f'{outdir}/test.png')
-    
 
     # TODO übergebe prompt und image folder
     #identify_attributes()
 
     # Create and start RTPT object
-    #rtpt = config.create_rtpt()
-    #rtpt.start()
+    rtpt = config.create_rtpt()
+    rtpt.start()
 
     # TODO wandblog
 
@@ -150,36 +147,6 @@ def get_images(run, image_location):
                     w_expanded = w
 
                 x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
-
-                img = x.permute(0,2,3,1).cpu().numpy() 
-                print('img_np', img.shape)
-
-                Image.fromarray(img[0], 'RGB').save(f'{outdir}/test.png')
-    
-
-
-
-                #print('generatored')
-
-                #? also load targets? see https://github.com/LukasStruppek/Plug-and-Play-Attacks/blob/master/datasets/attack_latents.py#L8
-
-                # re-generate image 
-                #img = create_image(w,
-                #            synthesis,
-                #            crop_size= 800, #crop_size=config.attack_center_crop, #TODO put in config
-                #            resize= 224) #resize=config.attack_resize) #TODO put in config
-
-                #print('img',img.shape)
-
-                #convert to numpy array and permute order from batch, channel, hight, width to batch, height, width,channel
-                #img_np = img.permute(0,2,3,1).cpu().numpy() 
-               # print('img_np', img_np.shape)
-
-                #PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/seed{seed:04d}.png')
-                #Image.fromarray(img_np[0], 'RGB').save(f'{outdir}/test.png')
-                #print("IMAGE SAVED") 
-
-         
     
 
 def model_using_pretrained_stylegan():
@@ -215,9 +182,39 @@ def identify_attributes():
         #print(logits_per_image[0])
         print("IMAGE ", str(i), probs)
 
-        # TODO log to wandb
+
         # TODO throw error if no images in the folder
         '''
+
+def create_parser():
+    parser = argparse.ArgumentParser(
+        description='automated evaluation using CLIP')
+    parser.add_argument('-c',
+                        '--config',
+                        default=None,
+                        type=str,
+                        dest="config",
+                        help='Config .json file path (default: None)')
+    parser.add_argument('--no_rtpt',
+                        action='store_false',
+                        dest="rtpt",
+                        help='Disable RTPT')
+    return parser
+
+
+def parse_arguments(parser):
+    args = parser.parse_args()
+
+    if not args.config:
+        print(
+            "Configuration file is missing. Please check the provided path. Execution is stopped."
+        )
+        exit()
+
+    # Load attr_ident config
+    config = AttrIdentConfigParser(args.config)
+
+    return config, args
 
 if __name__ == '__main__':
     main()
