@@ -42,7 +42,8 @@ def main():
         name = config.wandb_name,
         config={
             "dataset": "test-data-beard",
-            "prompts": prompts
+            "prompts": prompts,
+            "acc_above": "0.8",
             }
         )
 
@@ -144,7 +145,8 @@ def identify_attributes(prompts,clip_processor, clip_model):
     # TODO take prompts from config file
     print(prompts[0])
     log_scores= []
-    log_probs = []
+    all_probs_0 = []
+    all_probs_1 = []
     #img_probability = []
     #automatic evaluation of all images saved to local folder
     for i in os.listdir("media/images"):
@@ -156,11 +158,25 @@ def identify_attributes(prompts,clip_processor, clip_model):
         logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
         probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
         #print(logits_per_image[0])
-        print(f"probability = {probs[0][0]:.2f}")
+        #print(f"probability = {probs[0][0]:.2f}")
         # log metrics to wandb
-        log_scores.append(logits_per_image)
-        log_probs.append(probs)
+        #log_scores.append(logits_per_image)
+        all_probs_0.append(probs[0][0])
+        all_probs_1.append(probs[0][1])
 
+    print(all_probs_0[:5])
+    print(all_probs_1[:5])
+    # calculate accuracy
+    benchmark = 0.8
+    acc_0 = (torch.sum(all_probs_0 > benchmark).item())/len(all_probs_0)
+    print("accuracy_prompt_0: ", acc_0)
+
+    acc_1 = (torch.sum(all_probs_1 > benchmark).item())/len(all_probs_1)
+    print("accuracy_prompt_1: ", acc_1)
+
+    wandb.log({"acc_prompt_0": acc_0, "acc_prompt_1":acc_1})
+
+'''
 
     all_scores = torch.cat(log_scores, dim=0)
     lowest_score = round(all_scores.min(), 4)
@@ -202,7 +218,7 @@ def identify_attributes(prompts,clip_processor, clip_model):
 
     # TODO throw error if no images in the folder
 
-       
+'''       
 
 def create_parser():
     parser = argparse.ArgumentParser(

@@ -1,5 +1,5 @@
 ---
-wandb_attack_run: model_inversion_attacks/ga0mt8yu # WandB run id for attack that should be evaluated
+wandb_attack_run: model_inversion_attacks/c71ijc5m # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
