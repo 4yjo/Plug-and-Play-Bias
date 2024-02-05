@@ -28,8 +28,9 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
-    attribute = config.attribute 
-    prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+    #attribute = config.attribute 
+    #prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+    prompt = config.prompt
 
     # Create and start RTPT object
     rtpt = config.create_rtpt()
@@ -37,16 +38,17 @@ def main():
 
     # wandblog
      # start a new wandb run to track this script
+    
     wandb.init(
         project=config.wandb_project,
         name = config.wandb_name,
         config={
             "dataset": "test-data-beard",
-            "prompts": prompts,
+            "prompts": prompt,
             "acc_above": "0.8",
             }
         )
-
+    
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -61,8 +63,7 @@ def main():
 
     get_images(run, image_location, G)
 
-    # TODO übergebe prompt und image folder
-    identify_attributes(prompts, processor, model)
+    identify_attributes(prompt, processor, model)
 
 
    
@@ -141,40 +142,53 @@ def get_images(run, image_location, G=None):
     
 
 
-def identify_attributes(prompts,clip_processor, clip_model):
-    # TODO take prompts from config file
-    print(prompts[0])
-    log_scores= []
+def identify_attributes(prompt,clip_processor, clip_model):
+    print(prompt)
+    sim_scores= []
     all_probs_0 = []
-    all_probs_1 = []
+    #all_probs_1 = []
     #img_probability = []
     #automatic evaluation of all images saved to local folder
     for i in os.listdir("media/images"):
         image = Image.open("media/images/" + str(i))
-
-        inputs = clip_processor(text=prompts, images=image, return_tensors="pt", padding=True) #process using CLIP
-
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
-        logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-        probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
-        #print(logits_per_image[0])
-        #print(f"probability = {probs[0][0]:.2f}")
-        # log metrics to wandb
-        #log_scores.append(logits_per_image)
-        all_probs_0.append(probs[0][0])
-        all_probs_1.append(probs[0][1])
+        logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
+        sim_scores.append(logits_per_image)
+        #prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
+        #all_probs_0.append(prob)
+        #all_probs_0.append(probs[0][0])
+        #all_probs_1.append(probs[0][1])
+    
+    print(len(sim_scores))
+    print(sim_scores[0])
 
-    print(all_probs_0[:5])
-    print(all_probs_1[:5])
-    # calculate accuracy
-    benchmark = 0.8
-    acc_0 = (torch.sum(all_probs_0 > benchmark).item())/len(all_probs_0)
-    print("accuracy_prompt_0: ", acc_0)
+    sc = np.squeeze(sim_scores)
 
-    acc_1 = (torch.sum(all_probs_1 > benchmark).item())/len(all_probs_1)
-    print("accuracy_prompt_1: ", acc_1)
 
-    wandb.log({"acc_prompt_0": acc_0, "acc_prompt_1":acc_1})
+    wandb.log({"mean similarity score": np.mean(sc), "lowest similarity score": np.amin(sc), "highest similarity score": np.amax(sc)})
+    #todo get indices of low scores
+    wandb.finish()
+
+    #print(len(all_probs_0))
+    #print(prob)
+    #all_probs = np.squeeze(all_probs_0)
+    #print(all_probs[0])
+
+    #wandb.log({"all_prob_0": all_probs_0, "mean_prob_0": np.mean(all_probs_0), "lowest_prob_0": np.amin(all_probs_0), "highest_prob_0": np.amax(all_probs_0)})
+    
+     #calc accuracy 
+    #benchmark = 0.8
+    #counter = np.where(all_probs > benchmark)[0]
+    #acc_0 = len(counter)/len(all_probs_0)
+    #print("accuracy_prompt_0: ", acc_0)
+    
+    #wandb.finish() 
+
+    #acc_1 = (torch.sum(all_probs_1 > benchmark).item())/len(all_probs_1)
+    #print("accuracy_prompt_1: ", acc_1)
+
+    #wandb.log({"acc_prompt_0": acc_0, "acc_prompt_1":acc_1})
 
 '''
 
