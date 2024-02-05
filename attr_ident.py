@@ -1,6 +1,7 @@
 import argparse
 import torch
 import torchvision
+import torchvision.transforms.functional as F
 
 
 import wandb
@@ -113,8 +114,14 @@ def get_images(run, image_location, G=None):
                     w_expanded = w
     
         x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
+
         print(x.shape)
-        # save image
+        # crop and resize
+        x = F.resize(x, 255, antialias=True)
+        #x = F.center_crop(x, (800, 800)) #crop images
+        x = (x * 0.5 + 128 / 255).clamp(0, 1) #maps from [-1,1] to [0,1]
+
+        #save images
         for i in range(x.shape[0]):
             torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
