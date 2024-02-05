@@ -1,5 +1,5 @@
 ---
-wandb_attack_run: model_inversion_attacks/opwhz4h0 # WandB run id for attack that should be evaluated
+wandb_attack_run: model_inversion_attacks/ga0mt8yu # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
@@ -16,10 +16,12 @@ rtpt: # State RTPT details. It renames the process to show the remaining time an
   experiment_name: Attribute identification
   name_initials: AM
 
+wandb_project: attribute_identification
+wandb_name: test_CLIP
 
-wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
-  wandb_init_args: # WandB init arguments.
-    project: attribute_identification
-    save_code: true
-    name: test
+#wandb: # Options for WandB logging.
+#  enable_logging: true # Activate logging.
+#  wandb_init_args: # WandB init arguments.
+#    project: attribute_identification
+#    save_code: true
+#    name: test

@@ -2,7 +2,7 @@ import argparse
 import torch
 import torchvision
 import torchvision.transforms.functional as F
-
+import numpy as np
 
 import wandb
 from rtpt import RTPT
@@ -28,6 +28,24 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
+    attribute = config.attribute 
+    prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+
+    # Create and start RTPT object
+    rtpt = config.create_rtpt()
+    rtpt.start()
+
+    # wandblog
+     # start a new wandb run to track this script
+    wandb.init(
+        project=config.wandb_project,
+        name = config.wandb_name,
+        config={
+            "dataset": "test-data-beard",
+            "prompts": prompts
+            }
+        )
+
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -42,17 +60,11 @@ def main():
 
     get_images(run, image_location, G)
 
-    attribute = config.attribute 
-    prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
-
     # TODO übergebe prompt und image folder
     identify_attributes(prompts, processor, model)
 
-    # Create and start RTPT object
-    rtpt = config.create_rtpt()
-    rtpt.start()
 
-    # TODO wandblog
+   
 
 
 def get_images(run, image_location, G=None):
@@ -117,9 +129,9 @@ def get_images(run, image_location, G=None):
 
         print(x.shape)
         # crop and resize
-        x = F.resize(x, 255, antialias=True)
+        x = F.resize(x, 224, antialias=True)
         #x = F.center_crop(x, (800, 800)) #crop images
-        x = (x * 0.5 + 128 / 255).clamp(0, 1) #maps from [-1,1] to [0,1]
+        x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
 
         #save images
         for i in range(x.shape[0]):
@@ -131,6 +143,8 @@ def get_images(run, image_location, G=None):
 def identify_attributes(prompts,clip_processor, clip_model):
     # TODO take prompts from config file
     print(prompts[0])
+    log_scores= []
+    log_probs = []
     #img_probability = []
     #automatic evaluation of all images saved to local folder
     for i in os.listdir("media/images"):
@@ -143,12 +157,51 @@ def identify_attributes(prompts,clip_processor, clip_model):
         probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
         #print(logits_per_image[0])
         print(f"probability = {probs[0][0]:.2f}")
-              
-        #wandb.save()
-    #img_probability.append(probs)
+        # log metrics to wandb
+        log_scores.append(logits_per_image)
+        log_probs.append(probs)
 
-        # TODO throw error if no images in the folder
-    #return img_probability
+
+    all_scores = torch.cat(log_scores, dim=0)
+    lowest_score = round(all_scores.min(), 4)
+    lowest_score_idx = all_scores.argmin()
+    highest_score = round(all_scores.max(), 4)
+    highest_score_idx = all_scores.argmax()
+    mean_scores = round(all_scores.mean(), 4)
+
+    wandb.log({"mean_score": mean_scores,
+               "lowest_score": lowest_score,
+               "lowest_score_idx": lowest_score_idx,
+               "highest_score": highest_score,
+               "highest_score_idx": highest_score_idx})
+    
+    all_probs = torch.cat(log_probs, dim=0)
+    lowest_probs = round(all_probs.min(), 4)
+    lowest_probs_idx = all_probs.argmin()
+    highest_probs = round(all_probs.max(), 4)
+    highest_probs_idx = all_probs.argmax()
+    mean_probs = round(all_probs.mean(), 4)
+
+    wandb.log({"mean_probs": mean_probs,
+               "lowest_probs": lowest_probs,
+               "lowest_probs_idx": lowest_probs_idx,
+               "highest_probs": highest_probs,
+               "highest_probs_idx": highest_probs_idx})
+    
+    # calculate accuracy
+    benchmark = 80
+    acc = (torch.sum(all_probs > benchmark).item())/len(all_probs)
+    print("accuracy: ", acc)
+
+    wandb.log({"accuracy": acc})
+
+    #all_probs = log_probs.detach().numpy()
+    #wandb.log({"all_prob": all_probs, "mean_prob": np.mean(all_probs), "lowest_prob": np.amin(all_probs), "highest_prob": np.amax(all_probs)})
+    wandb.finish()         
+  
+
+    # TODO throw error if no images in the folder
+
        
 
 def create_parser():

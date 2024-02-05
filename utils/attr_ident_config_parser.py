@@ -1,5 +1,6 @@
 import yaml
 from rtpt.rtpt import RTPT
+import wandb
 
 class AttrIdentConfigParser:
 
@@ -16,6 +17,7 @@ class AttrIdentConfigParser:
                     max_iterations=1)
         return rtpt
     
+
     @property
     def wandb_attack_run(self):
         return self._config['wandb_attack_run']
@@ -44,3 +46,11 @@ class AttrIdentConfigParser:
     @property
     def wandb(self):
         return self._config['wandb']
+    
+    @property
+    def wandb_project(self):
+        return self._config['wandb_project']
+    
+    @property
+    def wandb_name(self):
+        return self._config['wandb_name']
