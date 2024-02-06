@@ -26,9 +26,9 @@ class AttrIdentConfigParser:
     def image_location(self):
         return self._config['image_location']
     
-    #@property
-    #def attribute(self):
-    #    return self._config['attribute']
+    @property
+    def attribute(self):
+        return self._config['attribute']
 
     @property
     def prompt(self):

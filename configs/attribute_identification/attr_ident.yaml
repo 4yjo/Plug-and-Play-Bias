@@ -10,7 +10,7 @@ image_location: 'local' # 'local' if images already downloaded to media/images,
 
 
 
-prompt: 'a photo of a person with facial hair' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
+attribute: 'beard' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification

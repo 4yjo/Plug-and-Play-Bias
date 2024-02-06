@@ -28,9 +28,9 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
-    #attribute = config.attribute 
-    #prompts = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
-    prompt = config.prompt
+    attribute = config.attribute 
+    prompt = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+    
 
     # Create and start RTPT object
     rtpt = config.create_rtpt()
@@ -143,28 +143,32 @@ def get_images(run, image_location, G=None):
 
 
 def identify_attributes(prompt,clip_processor, clip_model):
+     #automatic evaluation of all images saved to local folder
     print(prompt)
     sim_scores= []
-    all_probs_0 = []
-    #all_probs_1 = []
-    #img_probability = []
-    #automatic evaluation of all images saved to local folder
+    class_probs = []
     for i in os.listdir("media/images"):
         image = Image.open("media/images/" + str(i))
         inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
-        logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
-        sim_scores.append(logits_per_image)
-        #prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
-        #all_probs_0.append(prob)
+        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
+        logits_per_image = outputs.logits_per_image
+        np_score = logits_per_image.cpu().detach().numpy()
+        sim_scores.append(np_score)
+        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
+        class_probs.append(prob)
         #all_probs_0.append(probs[0][0])
         #all_probs_1.append(probs[0][1])
     
-    print(len(sim_scores))
-    print(sim_scores[0])
 
     sc = np.squeeze(sim_scores)
-
+    print('sc', sc[:5])
+    cp = np.squeeze(class_probs)
+    print('cp', cp[:5])
+    
+    cp_0 = [i for i in cp[0]]
+    print("cp0",len(cp_0))
+    print("mean",np.mean(cp_0))
 
     wandb.log({"mean similarity score": np.mean(sc), "lowest similarity score": np.amin(sc), "highest similarity score": np.amax(sc)})
     #todo get indices of low scores
