@@ -73,8 +73,10 @@ def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
         print('using locally stored images for CLIP evaluation')
-        if os.path.exists("media/images"):
-            c = len([f for f in os.listdir("media/images")])
+        #if os.path.exists("media/images"):
+         #   c = len([f for f in os.listdir("media/images")]) #TODO uncomment
+        if os.path.exists("no_beard"):
+            c = len([f for f in os.listdir("no_beard")])
             print("found ", str(c), " images locally in media/images")
         else: 
             raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
@@ -147,8 +149,10 @@ def identify_attributes(prompt,clip_processor, clip_model):
     print(prompt)
     sim_scores= []
     class_probs = []
-    for i in os.listdir("media/images"):
-        image = Image.open("media/images/" + str(i))
+    #for i in os.listdir("media/images"):
+        #image = Image.open("media/images/" + str(i)) #TODO
+    for i in os.listdir("no_beard"):
+        image = Image.open("no_beard/" + str(i))
         inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
         #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
@@ -166,11 +170,20 @@ def identify_attributes(prompt,clip_processor, clip_model):
     cp = np.squeeze(class_probs)
     print('cp', cp[:5])
     
-    cp_0 = [i for i in cp[0]]
+    cp_0 = cp[:, 0]
     print("cp0",len(cp_0))
+    print("cp0-5:", cp_0[:5])
     print("mean",np.mean(cp_0))
+    print("lowest score: ", np.amin(cp_0), "at img", np.argmin(cp_0))
+    print("highest score: ", np.amax(cp_0), "at img", np.argmax(cp_0))
 
-    wandb.log({"mean similarity score": np.mean(sc), "lowest similarity score": np.amin(sc), "highest similarity score": np.amax(sc)})
+    benchmark = 0.5
+    pos_classified = [i for i in cp_0 if i > benchmark]
+    acc = len(pos_classified)/len(cp_0)
+    print("acc ", acc)
+
+    wandb.log({"prompt_0/acc": acc, "prompt_1/test": 0.1, "prompt_1/test2":0.2})
+    #wandb.log({"prompt_0": "{"mean similarity score": np.mean(sc), "lowest similarity score": np.amin(sc), "highest similarity score": np.amax(sc)}", "prompt_1":"test"})
     #todo get indices of low scores
     wandb.finish()
 
