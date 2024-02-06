@@ -12,11 +12,13 @@ image_location: 'local' # 'local' if images already downloaded to media/images,
 
 attribute: 'beard' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
 
+benchmark: 0.5 #for calculation of accuracy all values > benchmark are classified in class
+
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification
   name_initials: AM
 
-wandb_project: attribute_identification
+wandb_project: CLIP_prompts
 wandb_name: test_CLIP
 
 #wandb: # Options for WandB logging.

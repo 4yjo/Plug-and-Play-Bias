@@ -3,6 +3,7 @@ import torch
 import torchvision
 import torchvision.transforms.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 
 import wandb
 from rtpt import RTPT
@@ -22,14 +23,14 @@ def main():
     config, args = parse_arguments(parser)
 
     # Set seeds
-    #torch.manual_seed(42)
     torch.manual_seed(config.seed)
 
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
     attribute = config.attribute 
-    prompt = ["a photo of a person with no " + attribute, "a photo of a person with " + attribute]
+    benchmark = config.benchmark
+    prompt = ["a photo of a person with " + attribute, "a photo of a person with no "+attribute]
     
 
     # Create and start RTPT object
@@ -45,7 +46,7 @@ def main():
         config={
             "dataset": "test-data-beard",
             "prompts": prompt,
-            "acc_above": "0.8",
+            "benchmark": config.benchmark,
             }
         )
     
@@ -63,21 +64,20 @@ def main():
 
     get_images(run, image_location, G)
 
-    identify_attributes(prompt, processor, model)
+    #dataset with beard
+    identify_attributes(prompt, benchmark, processor, model)
 
 
    
-
-
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
         print('using locally stored images for CLIP evaluation')
         #if os.path.exists("media/images"):
          #   c = len([f for f in os.listdir("media/images")]) #TODO uncomment
-        if os.path.exists("no_beard"):
-            c = len([f for f in os.listdir("no_beard")])
-            print("found ", str(c), " images locally in media/images")
+        if os.path.exists("with_beard"):
+            c = len([f for f in os.listdir("with_beard")])
+            #print("found ", str(c), " images locally in media/images")
         else: 
             raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
         
@@ -144,15 +144,18 @@ def get_images(run, image_location, G=None):
     
 
 
-def identify_attributes(prompt,clip_processor, clip_model):
+def identify_attributes(prompt, benchmark, clip_processor, clip_model):
      #automatic evaluation of all images saved to local folder
     print(prompt)
     sim_scores= []
     class_probs = []
+    #########################
+    ## dataset with beard ###
+    #########################
     #for i in os.listdir("media/images"):
         #image = Image.open("media/images/" + str(i)) #TODO
-    for i in os.listdir("no_beard"):
-        image = Image.open("no_beard/" + str(i))
+    for i in os.listdir("with_beard"):
+        image = Image.open("with_beard/" + str(i)) 
         inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
         #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
@@ -161,95 +164,93 @@ def identify_attributes(prompt,clip_processor, clip_model):
         sim_scores.append(np_score)
         prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
         class_probs.append(prob)
-        #all_probs_0.append(probs[0][0])
-        #all_probs_1.append(probs[0][1])
     
-
-    sc = np.squeeze(sim_scores)
-    print('sc', sc[:5])
-    cp = np.squeeze(class_probs)
-    print('cp', cp[:5])
     
-    cp_0 = cp[:, 0]
+    cp_0 = np.squeeze(class_probs)[:, 0]
+    sc_0 = np.squeeze(sim_scores)[:,0]
+    """   
     print("cp0",len(cp_0))
     print("cp0-5:", cp_0[:5])
     print("mean",np.mean(cp_0))
     print("lowest score: ", np.amin(cp_0), "at img", np.argmin(cp_0))
     print("highest score: ", np.amax(cp_0), "at img", np.argmax(cp_0))
+    """
+    pos_classified_0 = [i for i in cp_0 if i > benchmark]
+    acc_0 = len(pos_classified_0)/len(cp_0)
 
-    benchmark = 0.5
-    pos_classified = [i for i in cp_0 if i > benchmark]
-    acc = len(pos_classified)/len(cp_0)
-    print("acc ", acc)
+    print("highest prob beard", np.amax(cp_0), np.argmax(cp_0))
+    print("lowest prob beard", np.amin(cp_0), np.argmin(cp_0))
 
-    wandb.log({"prompt_0/acc": acc, "prompt_1/test": 0.1, "prompt_1/test2":0.2})
-    #wandb.log({"prompt_0": "{"mean similarity score": np.mean(sc), "lowest similarity score": np.amin(sc), "highest similarity score": np.amax(sc)}", "prompt_1":"test"})
-    #todo get indices of low scores
+    wandb.log({
+        "with_beard/mean_prob": np.mean(cp_0),
+        "with_beard/mean_similarity_score": np.mean(sc_0),
+        "with_beard/acc": acc_0
+    })
+
+    #########################
+    ## dataset no   beard ###
+    #########################
+    sim_scores= []
+    class_probs = []
+    for i in os.listdir("no_beard"):
+        image = Image.open("no_beard/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
+        outputs = clip_model(**inputs)
+        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
+        logits_per_image = outputs.logits_per_image
+        np_score = logits_per_image.cpu().detach().numpy()
+        sim_scores.append(np_score)
+        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
+        class_probs.append(prob)
+    
+    cp_1 = np.squeeze(class_probs)[:, 1]
+    sc_1 = np.squeeze(sim_scores)[:,1]
+    pos_classified_1 = [i for i in cp_1 if i > benchmark]
+    acc_1 = len(pos_classified_1)/len(cp_1)
+    
+    print("highest prob no beard", np.amax(cp_1), np.argmax(cp_1))
+    print("lowest prob no beard", np.amin(cp_1), np.argmin(cp_1))
+
+    wandb.log({
+        "no_beard/mean_prob": np.mean(cp_1),
+        "no_beard/mean_similarity_score": np.mean(sc_1),
+        "no_beard/acc": acc_1
+    })
+
+    acc = (len(pos_classified_0) + len(pos_classified_1)) / (len(cp_0) + len(cp_1))
+
+    wandb.log({"accurracy": acc})
+    '''
+    # Define the bin edges
+    bin_edges = np.arange(0, 1.1, 0.1)
+
+    #   Count the number of elements in each bin
+    bin_counts, _ = np.histogram(cp_0, bins=bin_edges)
+
+    # Plot the histogram
+    plt.bar(range(len(bin_counts)), bin_counts, tick_label=[f'{i}0-{i+1}0' for i in range(10)])
+    plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
+    plt.title('Distribution class prob test data with beard')
+    plt.tight_layout()
+    plt.savefig('dist-with-beard.png')
+    '''
+    # Define the bin edges
+    bin_edges2 = np.arange(0, 1.1, 0.1)
+
+    #   Count the number of elements in each bin
+    bin_counts2, _ = np.histogram(cp_1, bins=bin_edges2)
+
+
+    # Plot the histogram
+    plt.bar(range(len(bin_counts2)), bin_counts2, tick_label=[f'{i}0-{i+1}0' for i in range(10)])
+    plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
+    plt.title('Distribution class prob test data no beard')
+    plt.tight_layout()
+    plt.savefig('dist-no-beard.png')
+
     wandb.finish()
 
-    #print(len(all_probs_0))
-    #print(prob)
-    #all_probs = np.squeeze(all_probs_0)
-    #print(all_probs[0])
-
-    #wandb.log({"all_prob_0": all_probs_0, "mean_prob_0": np.mean(all_probs_0), "lowest_prob_0": np.amin(all_probs_0), "highest_prob_0": np.amax(all_probs_0)})
-    
-     #calc accuracy 
-    #benchmark = 0.8
-    #counter = np.where(all_probs > benchmark)[0]
-    #acc_0 = len(counter)/len(all_probs_0)
-    #print("accuracy_prompt_0: ", acc_0)
-    
-    #wandb.finish() 
-
-    #acc_1 = (torch.sum(all_probs_1 > benchmark).item())/len(all_probs_1)
-    #print("accuracy_prompt_1: ", acc_1)
-
-    #wandb.log({"acc_prompt_0": acc_0, "acc_prompt_1":acc_1})
-
-'''
-
-    all_scores = torch.cat(log_scores, dim=0)
-    lowest_score = round(all_scores.min(), 4)
-    lowest_score_idx = all_scores.argmin()
-    highest_score = round(all_scores.max(), 4)
-    highest_score_idx = all_scores.argmax()
-    mean_scores = round(all_scores.mean(), 4)
-
-    wandb.log({"mean_score": mean_scores,
-               "lowest_score": lowest_score,
-               "lowest_score_idx": lowest_score_idx,
-               "highest_score": highest_score,
-               "highest_score_idx": highest_score_idx})
-    
-    all_probs = torch.cat(log_probs, dim=0)
-    lowest_probs = round(all_probs.min(), 4)
-    lowest_probs_idx = all_probs.argmin()
-    highest_probs = round(all_probs.max(), 4)
-    highest_probs_idx = all_probs.argmax()
-    mean_probs = round(all_probs.mean(), 4)
-
-    wandb.log({"mean_probs": mean_probs,
-               "lowest_probs": lowest_probs,
-               "lowest_probs_idx": lowest_probs_idx,
-               "highest_probs": highest_probs,
-               "highest_probs_idx": highest_probs_idx})
-    
-    # calculate accuracy
-    benchmark = 80
-    acc = (torch.sum(all_probs > benchmark).item())/len(all_probs)
-    print("accuracy: ", acc)
-
-    wandb.log({"accuracy": acc})
-
-    #all_probs = log_probs.detach().numpy()
-    #wandb.log({"all_prob": all_probs, "mean_prob": np.mean(all_probs), "lowest_prob": np.amin(all_probs), "highest_prob": np.amax(all_probs)})
-    wandb.finish()         
   
-
-    # TODO throw error if no images in the folder
-
-'''       
 
 def create_parser():
     parser = argparse.ArgumentParser(

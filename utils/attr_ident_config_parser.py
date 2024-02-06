@@ -31,8 +31,8 @@ class AttrIdentConfigParser:
         return self._config['attribute']
 
     @property
-    def prompt(self):
-        return self._config['prompt']
+    def benchmark(self):
+        return self._config['benchmark']
 
     @property
     def stylegan_model(self):
