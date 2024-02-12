@@ -1,18 +1,17 @@
 ---
-wandb_attack_run: model_inversion_attacks/c71ijc5m # WandB run id for attack that should be evaluated
+wandb_attack_run: model_inversion_attacks/40zvwf95 # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
 
-image_location: 'local' # 'local' if images already downloaded to media/images, 
+image_location: 'wandb-weights' # 'local' if images already downloaded to media/images, 
                                 # 'wandb-media' to download from run, 
                                 # 'wandb-weights' to generate from weight vector if media is not stored on wandb
 
 
 
-attribute: 'beard' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
+attribute: 'facial hair' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
 
-benchmark: 0.5 #for calculation of accuracy all values > benchmark are classified in class
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification

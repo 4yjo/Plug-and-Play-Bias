@@ -29,7 +29,6 @@ def main():
     run = api.run(config.wandb_attack_run)
 
     attribute = config.attribute 
-    benchmark = config.benchmark
     '''
     prompts = ["a photo of a person with " + attribute, 
             "an image of a person with "+attribute, 
@@ -40,13 +39,17 @@ def main():
             "a cropped photo of a person with no "+attribute,
             "an image of a head of a person with no "+attribute]
     
-    '''
+    
     prompts = [["a photo of a person with no " + attribute,  "a photo of a person with " + attribute], 
             ["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
             ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
             ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute],
             ["a portrait of a person with no "+attribute, "a portrait of a person with "+attribute]]
+    '''
     
+    prompts = [["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
+            ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
+            ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute]]
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
@@ -80,15 +83,7 @@ def main():
     #get_images(run, image_location, G)
 
     #dataset with beard
-    identify_attributes(prompts, benchmark, processor, model)
-
-def accuracy(output, target, topk=(1,)):
-    pred = output.topk(max(topk), 1, True, True)[1].t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-    return [float(correct[:k].reshape(-1).float().sum(0, keepdim=True).cpu().numpy()) for k in topk]
-
-
-
+    identify_attributes(prompts, processor, model)
    
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
@@ -163,7 +158,7 @@ def get_images(run, image_location, G=None):
             torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
 
-def identify_attributes(prompts, benchmark, clip_processor, clip_model):
+def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images 
     
     #########################
@@ -189,17 +184,23 @@ def identify_attributes(prompts, benchmark, clip_processor, clip_model):
             #best_prompts.append(probs.argmax()) #append index of best rated
 
         # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        #decisions.append(decision.item()) 
+        highest_prop = torch.argmax(all_probs, dim=1) 
+        #print(highest_prop, i)
+        decision = torch.round(torch.sum(highest_prop)/len(prompts))
         decisions.append(decision.item()) 
-    
+
+
     acc_beard = np.sum(decisions)/len(decisions)
-    print("ACC 0", acc_beard)
-  
+    print("Percentage with beard: ", acc_beard)  
+    
+
     #########################
     ## dataset no attr ###
     #########################
     decisions = []
-    for i in os.listdir("no_beard")[:3]:
+    for i in os.listdir("no_beard"):
         all_probs = torch.tensor([])
         decision = 0.0
         #best_probs = []
@@ -218,57 +219,29 @@ def identify_attributes(prompts, benchmark, clip_processor, clip_model):
         decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
         decisions.append(decision.item()) 
         # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+       
+        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        #decisions.append(decision.item()) 
+        highest_prop = torch.argmax(all_probs, dim=1) 
+        #print(highest_prop, i)
+        decision = torch.round(torch.sum(highest_prop)/len(prompts))
         decisions.append(decision.item()) 
+
+
+    acc_no_beard = np.sum(decisions)/len(decisions)
+    print("Percentage with no beard: ", acc_no_beard)  
     
-    acc_no_beard = (len(decisions) - np.sum(decisions))/len(decisions)
-    print("ACC 1", acc_no_beard)
- 
-    overall_acc = (acc_beard + acc_no_beard)/2
-    print("ACC overall",  overall_acc)
-   
+    overall_acc = (acc_beard + (1.0-acc_no_beard))/2
+    print("Overall accuracy: ", overall_acc)
+
     #wandb.log({
     #    "no_beard/mean_prob": np.mean(cp_1),
     #    "no_beard/mean_similarity_score": np.mean(sc_1),
     #    "no_beard/acc": acc_1
     #})
 
-    #acc = (len(pos_classified_0) + len(pos_classified_1)) / (len(cp_0) + len(cp_1))
-
-    #wandb.log({"accurracy": acc})
-    '''
-    # Define the bin edges
-    bin_edges = np.arange(0, 1.1, 0.1)
-
-    #   Count the number of elements in each bin
-    bin_counts, _ = np.histogram(cp_0, bins=bin_edges)
-
-    # Plot the histogram
-    plt.bar(range(len(bin_counts)), bin_counts, tick_label=[f'{i}0-{i+1}0' for i in range(10)])
-    plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
-    plt.title('Distribution class prob test data with beard')
-    plt.tight_layout()
-    plt.savefig('dist-with-beard.png')
-    
-    print("sim_scores", sc_1[:5])
-
-    # Define the bin edges
-    bin_edges2 = np.arange(0, 110, 10)
-
-    #   Count the number of elements in each bin
-    bin_counts2, _ = np.histogram(sc_0, bins=bin_edges2)
-
-
-    # Plot the histogram
-    plt.bar(range(len(bin_counts2)), bin_counts2, tick_label=[f'{i}0-{i+1}0' for i in range(10)])
-    plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
-    plt.title('Distribution similarity score test data with beard')
-    plt.tight_layout()
-    plt.savefig('similarity-with-beard.png')
-'''
-    #wandb.finish()
-
-  
+    #wandb.finish
 
 def create_parser():
     parser = argparse.ArgumentParser(

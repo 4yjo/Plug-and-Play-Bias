@@ -29,10 +29,18 @@ def main():
     run = api.run(config.wandb_attack_run)
 
     attribute = config.attribute 
-    benchmark = config.benchmark
-    prompt = ["a photo of a person with " + attribute, "a photo of a person with no "+attribute]
-    
+    '''
+    prompts = [["a photo of a person with no" + attribute,  "a photo of a person with " + attribute], 
+            ["an image of a person with no"+attribute,  "an image of a person with "+attribute],  
+            ["a cropped photo of a person with no"+attribute, "a cropped photo of a person with "+attribute],
+            ["an image of a head of a person with no"+attribute, "an image of a head of a person with "+attribute],
+            ["a portrait of a person with no"+attribute, "a portrait of a person with "+attribute]]
+    '''
 
+    prompts = [["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
+            ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
+            ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute]]
+    
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
@@ -40,15 +48,15 @@ def main():
     # wandblog
      # start a new wandb run to track this script
     
-    wandb.init(
-        project=config.wandb_project,
-        name = config.wandb_name,
-        config={
-            "dataset": "test-data-beard",
-            "prompts": prompt,
-            "benchmark": config.benchmark,
-            }
-        )
+    #wandb.init(
+    #    project=config.wandb_project,
+    #    name = config.wandb_name,
+    #    config={
+    #        "dataset": "test-data-beard",
+    #        "prompts": prompt,
+    #        "benchmark": config.benchmark,
+    #        }
+    #    )
     
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -65,7 +73,7 @@ def main():
     get_images(run, image_location, G)
 
     #dataset with beard
-    identify_attributes(prompt, benchmark, processor, model)
+    identify_attributes(prompts, processor, model)
 
 
    
@@ -141,85 +149,30 @@ def get_images(run, image_location, G=None):
         for i in range(x.shape[0]):
             torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
+def identify_attributes(prompts, clip_processor, clip_model):
+     #automatic evaluation of all images 
+    decisions = []
+    for i in os.listdir("media/images"):
+        image = Image.open("media/images/" +str(i)) 
+        all_probs = torch.tensor([])
+        decision = 0.0
     
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image # CLIP similarity score
+            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
+        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        highest_prop = torch.argmax(all_probs, dim=1) 
+        #print(highest_prop, i)
+        decision = torch.round(torch.sum(highest_prop)/len(prompts))
+        decisions.append(decision.item()) 
+    acc_beard = np.sum(decisions)/len(decisions)
+    print("Percentage with beard: ", acc_beard)  
 
-
-def identify_attributes(prompt, benchmark, clip_processor, clip_model):
-     #automatic evaluation of all images saved to local folder
-    print(prompt)
-    sim_scores= []
-    class_probs = []
-    #########################
-    ## dataset with beard ###
-    #########################
-    #for i in os.listdir("media/images"):
-        #image = Image.open("media/images/" + str(i)) #TODO
-    for i in os.listdir("with_beard"):
-        image = Image.open("with_beard/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
-        outputs = clip_model(**inputs)
-        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
-        logits_per_image = outputs.logits_per_image
-        np_score = logits_per_image.cpu().detach().numpy()
-        sim_scores.append(np_score)
-        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
-        class_probs.append(prob)
-    
-    
-    cp_0 = np.squeeze(class_probs)[:, 0]
-    sc_0 = np.squeeze(sim_scores)[:,0]
-    """   
-    print("cp0",len(cp_0))
-    print("cp0-5:", cp_0[:5])
-    print("mean",np.mean(cp_0))
-    print("lowest score: ", np.amin(cp_0), "at img", np.argmin(cp_0))
-    print("highest score: ", np.amax(cp_0), "at img", np.argmax(cp_0))
-    """
-    pos_classified_0 = [i for i in cp_0 if i > benchmark]
-    acc_0 = len(pos_classified_0)/len(cp_0)
-
-    print("highest prob beard", np.amax(cp_0), np.argmax(cp_0))
-    print("lowest prob beard", np.amin(cp_0), np.argmin(cp_0))
-
-    wandb.log({
-        "with_beard/mean_prob": np.mean(cp_0),
-        "with_beard/mean_similarity_score": np.mean(sc_0),
-        "with_beard/acc": acc_0
-    })
-
-    #########################
-    ## dataset no   beard ###
-    #########################
-    sim_scores= []
-    class_probs = []
-    for i in os.listdir("no_beard"):
-        image = Image.open("no_beard/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
-        outputs = clip_model(**inputs)
-        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
-        logits_per_image = outputs.logits_per_image
-        np_score = logits_per_image.cpu().detach().numpy()
-        sim_scores.append(np_score)
-        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
-        class_probs.append(prob)
-    
-    cp_1 = np.squeeze(class_probs)[:, 1]
-    sc_1 = np.squeeze(sim_scores)[:,1]
-    pos_classified_1 = [i for i in cp_1 if i > benchmark]
-    acc_1 = len(pos_classified_1)/len(cp_1)
-    
-    print("highest prob no beard", np.amax(cp_1), np.argmax(cp_1))
-    print("lowest prob no beard", np.amin(cp_1), np.argmin(cp_1))
-
-    wandb.log({
-        "no_beard/mean_prob": np.mean(cp_1),
-        "no_beard/mean_similarity_score": np.mean(sc_1),
-        "no_beard/acc": acc_1
-    })
-
-    acc = (len(pos_classified_0) + len(pos_classified_1)) / (len(cp_0) + len(cp_1))
-
-    wandb.log({"accurracy": acc})
+    #wandb.log({"accurracy": acc_beard})
+    #wandb.finish()
     '''
     # Define the bin edges
     bin_edges = np.arange(0, 1.1, 0.1)
@@ -233,15 +186,6 @@ def identify_attributes(prompt, benchmark, clip_processor, clip_model):
     plt.title('Distribution class prob test data with beard')
     plt.tight_layout()
     plt.savefig('dist-with-beard.png')
-    '''
-    print("sim_scores", sc_1[:5])
-
-    # Define the bin edges
-    bin_edges2 = np.arange(0, 110, 10)
-
-    #   Count the number of elements in each bin
-    bin_counts2, _ = np.histogram(sc_0, bins=bin_edges2)
-
 
     # Plot the histogram
     plt.bar(range(len(bin_counts2)), bin_counts2, tick_label=[f'{i}0-{i+1}0' for i in range(10)])
@@ -249,9 +193,7 @@ def identify_attributes(prompt, benchmark, clip_processor, clip_model):
     plt.title('Distribution similarity score test data with beard')
     plt.tight_layout()
     plt.savefig('similarity-with-beard.png')
-
-    wandb.finish()
-
+    '''
   
 
 def create_parser():
