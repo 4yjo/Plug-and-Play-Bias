@@ -9,7 +9,7 @@ import wandb
 from rtpt import RTPT
 from utils.attr_ident_config_parser import AttrIdentConfigParser
 
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel, CLIPTokenizer
 from PIL import Image
 from utils.stylegan import load_generator
 #from utils.wandb import load_model
@@ -30,9 +30,23 @@ def main():
 
     attribute = config.attribute 
     benchmark = config.benchmark
-    prompt = ["a photo of a person with " + attribute, "a photo of a person with no "+attribute]
+    '''
+    prompts = ["a photo of a person with " + attribute, 
+            "an image of a person with "+attribute, 
+            "a cropped photo of a person with "+attribute,
+            "an image of a head of a person with "+attribute,
+            "a photo of a person with no " + attribute, 
+            "an image of a person with no "+attribute, 
+            "a cropped photo of a person with no "+attribute,
+            "an image of a head of a person with no "+attribute]
     
-
+    '''
+    prompts = [["a photo of a person with no " + attribute,  "a photo of a person with " + attribute], 
+            ["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
+            ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
+            ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute],
+            ["a portrait of a person with no "+attribute, "a portrait of a person with "+attribute]]
+    
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
@@ -40,19 +54,20 @@ def main():
     # wandblog
      # start a new wandb run to track this script
     
-    wandb.init(
-        project=config.wandb_project,
-        name = config.wandb_name,
-        config={
-            "dataset": "test-data-beard",
-            "prompts": prompt,
-            "benchmark": config.benchmark,
-            }
-        )
+    #wandb.init(
+    #    project=config.wandb_project,
+    #    name = config.wandb_name,
+    #    config={
+    #        "dataset": "test-data-beard",
+    #        "prompts": prompt,
+    #        "benchmark": config.benchmark,
+    #        }
+    #    )
     
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    #tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
     image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
 
@@ -62,10 +77,16 @@ def main():
     else:
         G = None
 
-    get_images(run, image_location, G)
+    #get_images(run, image_location, G)
 
     #dataset with beard
-    identify_attributes(prompt, benchmark, processor, model)
+    identify_attributes(prompts, benchmark, processor, model)
+
+def accuracy(output, target, topk=(1,)):
+    pred = output.topk(max(topk), 1, True, True)[1].t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    return [float(correct[:k].reshape(-1).float().sum(0, keepdim=True).cpu().numpy()) for k in topk]
+
 
 
    
@@ -141,85 +162,80 @@ def get_images(run, image_location, G=None):
         for i in range(x.shape[0]):
             torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
+
+def identify_attributes(prompts, benchmark, clip_processor, clip_model):
+     #automatic evaluation of all images 
     
-
-
-def identify_attributes(prompt, benchmark, clip_processor, clip_model):
-     #automatic evaluation of all images saved to local folder
-    print(prompt)
-    sim_scores= []
-    class_probs = []
     #########################
-    ## dataset with beard ###
+    ## dataset with attr ###
     #########################
     #for i in os.listdir("media/images"):
         #image = Image.open("media/images/" + str(i)) #TODO
+    
+    decisions = []
     for i in os.listdir("with_beard"):
+        all_probs = torch.tensor([])
+        decision = 0.0
+        #best_probs = []
+        #best_prompts = []
         image = Image.open("with_beard/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
-        outputs = clip_model(**inputs)
-        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
-        logits_per_image = outputs.logits_per_image
-        np_score = logits_per_image.cpu().detach().numpy()
-        sim_scores.append(np_score)
-        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
-        class_probs.append(prob)
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image # CLIP similarity score
+            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
+            #best_probs.append(probs.max().item()) #append
+            #best_prompts.append(probs.argmax()) #append index of best rated
+
+        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        decisions.append(decision.item()) 
     
-    
-    cp_0 = np.squeeze(class_probs)[:, 0]
-    sc_0 = np.squeeze(sim_scores)[:,0]
-    """   
-    print("cp0",len(cp_0))
-    print("cp0-5:", cp_0[:5])
-    print("mean",np.mean(cp_0))
-    print("lowest score: ", np.amin(cp_0), "at img", np.argmin(cp_0))
-    print("highest score: ", np.amax(cp_0), "at img", np.argmax(cp_0))
-    """
-    pos_classified_0 = [i for i in cp_0 if i > benchmark]
-    acc_0 = len(pos_classified_0)/len(cp_0)
-
-    print("highest prob beard", np.amax(cp_0), np.argmax(cp_0))
-    print("lowest prob beard", np.amin(cp_0), np.argmin(cp_0))
-
-    wandb.log({
-        "with_beard/mean_prob": np.mean(cp_0),
-        "with_beard/mean_similarity_score": np.mean(sc_0),
-        "with_beard/acc": acc_0
-    })
-
+    acc_beard = np.sum(decisions)/len(decisions)
+    print("ACC 0", acc_beard)
+  
     #########################
-    ## dataset no   beard ###
+    ## dataset no attr ###
     #########################
-    sim_scores= []
-    class_probs = []
-    for i in os.listdir("no_beard"):
+    decisions = []
+    for i in os.listdir("no_beard")[:3]:
+        all_probs = torch.tensor([])
+        decision = 0.0
+        #best_probs = []
+        #best_prompts = []
         image = Image.open("no_beard/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
-        outputs = clip_model(**inputs)
-        #logits_per_image = outputs.logits_per_image.cpu().detach().numpy()  # get image-text similarity score
-        logits_per_image = outputs.logits_per_image
-        np_score = logits_per_image.cpu().detach().numpy()
-        sim_scores.append(np_score)
-        prob = logits_per_image.softmax(dim=1).cpu().detach().numpy()  # softmax to get the label probabilities 
-        class_probs.append(prob)
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image # CLIP similarity score
+            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
+            #best_probs.append(probs.max().item()) #append
+            #best_prompts.append(probs.argmax()) #append index of best rated
+
+        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        decisions.append(decision.item()) 
+        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
+        decisions.append(decision.item()) 
     
-    cp_1 = np.squeeze(class_probs)[:, 1]
-    sc_1 = np.squeeze(sim_scores)[:,1]
-    pos_classified_1 = [i for i in cp_1 if i > benchmark]
-    acc_1 = len(pos_classified_1)/len(cp_1)
-    
-    print("highest prob no beard", np.amax(cp_1), np.argmax(cp_1))
-    print("lowest prob no beard", np.amin(cp_1), np.argmin(cp_1))
+    acc_no_beard = (len(decisions) - np.sum(decisions))/len(decisions)
+    print("ACC 1", acc_no_beard)
+ 
+    overall_acc = (acc_beard + acc_no_beard)/2
+    print("ACC overall",  overall_acc)
+   
+    #wandb.log({
+    #    "no_beard/mean_prob": np.mean(cp_1),
+    #    "no_beard/mean_similarity_score": np.mean(sc_1),
+    #    "no_beard/acc": acc_1
+    #})
 
-    wandb.log({
-        "no_beard/mean_prob": np.mean(cp_1),
-        "no_beard/mean_similarity_score": np.mean(sc_1),
-        "no_beard/acc": acc_1
-    })
+    #acc = (len(pos_classified_0) + len(pos_classified_1)) / (len(cp_0) + len(cp_1))
 
-    acc = (len(pos_classified_0) + len(pos_classified_1)) / (len(cp_0) + len(cp_1))
-
-    wandb.log({"accurracy": acc})
+    #wandb.log({"accurracy": acc})
     '''
     # Define the bin edges
     bin_edges = np.arange(0, 1.1, 0.1)
@@ -233,7 +249,7 @@ def identify_attributes(prompt, benchmark, clip_processor, clip_model):
     plt.title('Distribution class prob test data with beard')
     plt.tight_layout()
     plt.savefig('dist-with-beard.png')
-    '''
+    
     print("sim_scores", sc_1[:5])
 
     # Define the bin edges
@@ -249,8 +265,8 @@ def identify_attributes(prompt, benchmark, clip_processor, clip_model):
     plt.title('Distribution similarity score test data with beard')
     plt.tight_layout()
     plt.savefig('similarity-with-beard.png')
-
-    wandb.finish()
+'''
+    #wandb.finish()
 
   
 
