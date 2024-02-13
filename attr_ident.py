@@ -165,7 +165,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
         # majority vote over all prompts: decides 1 for attr, 0 for no attr  
         highest_prop = torch.argmax(all_probs, dim=1) 
-        #print(highest_prop, i)
+        print(highest_prop, i)
         decision = torch.round(torch.sum(highest_prop)/len(prompts))
         decisions.append(decision.item()) 
     acc_beard = np.sum(decisions)/len(decisions)
