@@ -30,37 +30,40 @@ class CelebA_Attributes(Dataset):
 
         celeba.targets=celeba.attr
       
-        # provide index/indices for attributes - if more than one they will be bitwise or
-        attributes = [16,22,30] #goatie 16, mustache 22, no_beard 24, sideburns 30
+        # provide index/indices for attributes 
+        attributes = [0] #goatie 16, mustache 22, no_beard 24, sideburns 30
 
-        # choose if attribute should be negated
+        # choose if attribute should be negated 
+        # (e.g. to get people with beard using negation of no_beard attribute)
         attr_negation = False # default is false
 
           
-        # get indices of image that are true for (all) attribute(s)
+        # get indices of image that are true for (all) attribute(s) from celeba attr tensor
         if (len(attributes) == 0):
             raise ValueError('no attributes given to filter subset')
         if (len(attributes) == 1):
-            attr_mask = celeba.attr[:,attributes[0]] > 0  # mask = simply take index of given attribute
+            attr_mask = celeba.attr[:,attributes[0]] > 0  # takes indices of given attribute 
         if (len(attributes) > 1):
             attr_x_indices = [] # array to store bool values for each attribute
             for i in range(len(attributes)):
                 attr_x_indices.append(celeba.attr[:,attributes[i]] > 0)
-        
-    
-        attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
-        for i in range(len(attr_x_indices)):
-            attr_mask = attr_mask | attr_x_indices[i] 
-      
 
-        # get indices (can be visualized as the row numbers of items that fall into the target mask)
+            attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
+            for i in range(len(attr_x_indices)):
+                attr_mask = attr_mask | attr_x_indices[i] #bitwise or to select indices that hold at least one attribute
+
+
+        # get image ids (= index of images according to true/false value in attr mask)
         if not attr_negation:
-            pos_indices = np.where(attr_mask)[0] # indices of images that have attribute
-            neg_indices = np.where(~attr_mask)[0] #indices of images that dont have attribute
+            pos_indices = torch.where(attr_mask)[0] 
+            neg_indices = torch.where(~attr_mask)[0] 
         else:
-            pos_indices = np.where(~attr_mask)[0] # indices of images that have attribute
-            neg_indices = np.where(attr_mask)[0] #indices of images that dont have attribute
+            pos_indices = torch.where(~attr_mask)[0]
+            neg_indices = torch.where(attr_mask)[0] 
 
+        # adjust to celeb a image ids (indexing starts with 1)
+        pos_indices += 1 
+        neg_indices += 1
        
         # balance samples 50:50
         #if (len(neg_indices) > len(pos_indices)):
@@ -69,33 +72,26 @@ class CelebA_Attributes(Dataset):
         #    pos_indices = pos_indices[:len(neg_indices)]
 
         #splits 
-        # pos samples should all be used, make up 10 percent of total samples
-        #neg_indices = neg_indices[:len(pos_indices)*9]
-
         #max nr of samples --> 100% pos
         total_samples = len(pos_indices)
 
-        share = 1 # percentage of pos samples => holding the attribute, eg 0.5, 0.8
+        share = 0.8 # percentage of pos samples => holding the attribute, eg 0.5, 0.8
         
         pos_indices = pos_indices[:int(total_samples*share)]
         neg_indices = neg_indices[:int(total_samples*(1-share))]
        
         indices = np.concatenate([pos_indices, neg_indices])
-        print('Pos Samples: ', len(pos_indices))
-        print(pos_indices[:10])
-        print('Neg Samples: ', len(neg_indices))
-        print(neg_indices[:10])
-        print('All Samples: ', len(indices))
         
-        # map targets and indices (before shuffeling)
+        # map targets and indices
         targets_mapping = {
             indices[i]: 1 if i < len(pos_indices) else 0 
             for i in range(len(indices))
         }
-
+    
+        # shuffle dataset
         np.random.seed(split_seed)
         np.random.shuffle(indices)
-        training_set_size = int(0.9 * len(indices))
+        training_set_size = int(0.9 * len(indices)) #take 90% of data for training
         train_idx = indices[:training_set_size]
         test_idx = indices[training_set_size:]
 
