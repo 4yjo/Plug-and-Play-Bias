@@ -91,9 +91,10 @@ class CelebA_Attributes(Dataset):
         # shuffle dataset
         np.random.seed(split_seed)
         np.random.shuffle(indices)
-        training_set_size = int(0.9 * len(indices)) #take 90% of data for training
+        training_set_size = int(0.9 * len(indices)) # take 90% of data for training
         train_idx = indices[:training_set_size]
         test_idx = indices[training_set_size:]
+    
 
         # Assert that there are no overlapping datasets
         assert len(set.intersection(set(train_idx), set(test_idx))) == 0
