@@ -18,10 +18,11 @@ from utils.datasets import get_normalization
 
 class TrainingConfigParser:
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, ratio):
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
         self._config = config
+        self.ratio = ratio
 
     def create_model(self):
         model_config = self._config['model']
@@ -54,9 +55,9 @@ class TrainingConfigParser:
             test_set = CelebA1000(train=False,
                                   transform=data_transformation_test)
         elif name == 'celeba_attributes':
-            train_set = CelebA_Attributes(train=True)
+            train_set = CelebA_Attributes(train=True, attributes=self._config['attributes'], ratio = self.ratio) #TODO can I add ratio from command line input to config file?
             test_set = CelebA_Attributes(train=False,
-                                    transform=data_transformation_test)
+                                    transform=data_transformation_test,attributes=self._config['attributes'], ratio = self.ratio)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,
@@ -226,6 +227,7 @@ class TrainingConfigParser:
     @property
     def seed(self):
         return self._config['seed']
+    
 
     @property
     def wandb(self):

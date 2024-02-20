@@ -13,12 +13,15 @@ def main():
     # Define and parse arguments
     parser = argparse.ArgumentParser(
         description='Training a target classifier')
+    parser.add_argument('--ratio', default=0.5) #add arguments that can be specified in CLI
+    parser.add_argument('--run_name', type=str, default=None)
     parser.add_argument('-c',
                         '--config',
                         default=None,
                         type=str,
                         dest="config",
                         help='Config .json file path (default: None)')
+    
     args = parser.parse_args()
 
     if not args.config:
@@ -27,8 +30,17 @@ def main():
         )
         exit()
 
+    print("Ratio of images with attribute: ", args.ratio)
+
+
     # Load json config file
-    config = TrainingConfigParser(args.config.strip())
+    config = TrainingConfigParser(args.config.strip(), ratio=args.ratio)
+
+    # Include optional arguments from Command Line Prompt
+    ratio = args.ratio
+    run_name = args.run_name
+
+    
 
     # Set seeds and make deterministic
     seed = config.seed
@@ -68,6 +80,8 @@ def main():
         metric=metric,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
+        ratio=ratio,
+        run_name=run_name,
         rtpt=rtpt,
         config=config,
         batch_size=config.training['batch_size'],

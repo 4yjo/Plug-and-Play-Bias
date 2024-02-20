@@ -18,10 +18,13 @@ class CelebA_Attributes(Dataset):
     """
     def __init__(self,
                  train,
+                 attributes,
+                 ratio=None,
                  split_seed=42,
                  transform=None,
                  root='data/celeba',
-                 download: bool = False):
+                 download: bool = False
+                 ):
         # Load default CelebA dataset
         celeba = CustomCelebA(root=root,
                         split='all',
@@ -31,7 +34,9 @@ class CelebA_Attributes(Dataset):
         celeba.targets=celeba.attr
       
         # provide index/indices for attributes 
-        attributes = [0] #goatie 16, mustache 22, no_beard 24, sideburns 30
+        attributes = attributes 
+        print("Attributes: ", attributes)
+        print("Ratio: ", ratio)
 
         # choose if attribute should be negated 
         # (e.g. to get people with beard using negation of no_beard attribute)
@@ -75,10 +80,11 @@ class CelebA_Attributes(Dataset):
         #max nr of samples --> 100% pos
         total_samples = len(pos_indices)
 
-        share = 0.8 # percentage of pos samples => holding the attribute, eg 0.5, 0.8
-        
-        pos_indices = pos_indices[:int(total_samples*share)]
-        neg_indices = neg_indices[:int(total_samples*(1-share))]
+        # percentage of pos samples => holding the attribute
+        ratio = float(ratio)
+
+        pos_indices = pos_indices[:int(total_samples*ratio)]
+        neg_indices = neg_indices[:int(total_samples*(1-ratio))]
        
         indices = np.concatenate([pos_indices, neg_indices])
         
@@ -327,6 +333,5 @@ print(attr_test[1])
 attr_test = CelebA_Attributes(train=True)
 print(len(attr_test))
 '''
-attr_test = CelebA_Attributes(train=True)
 
 
