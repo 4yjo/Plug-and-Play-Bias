@@ -31,9 +31,11 @@ class TrainingConfigParser:
         return model
 
     def create_datasets(self):
+        print('Creating Dataset', self._config['dataset'],' in training config parser')
         dataset_config = self._config['dataset']
         name = dataset_config['type'].lower()
         train_set, valid_set, test_set = None, None, None
+        print("trainset reset: ", train_set)
 
         data_transformation_train = self.create_transformations(
             mode='training', normalize=True)
@@ -55,9 +57,10 @@ class TrainingConfigParser:
             test_set = CelebA1000(train=False,
                                   transform=data_transformation_test)
         elif name == 'celeba_attributes':
+            print('chose celeba attr in if statement')
             train_set = CelebA_Attributes(train=True, attributes=self._config['attributes'], ratio = self.ratio) #TODO can I add ratio from command line input to config file?
-            test_set = CelebA_Attributes(train=False,
-                                    transform=data_transformation_test,attributes=self._config['attributes'], ratio = self.ratio)
+            #test_set = CelebA_Attributes(train=False,
+            #                        transform=data_transformation_test,attributes=self._config['attributes'], ratio = self.ratio)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,
@@ -92,10 +95,16 @@ class TrainingConfigParser:
             )
             train_set_size = len(train_set) - validation_set_size
         # Split datasets into train and test split and set transformations
+        print("TARGETS BEFORE SHUFFLE IN TRAINING CONFIG PARSER")
+        #TODO Take indices from train set
         indices = list(range(len(train_set)))
+        print(indices)
+        test_targets_print= [train_set[i][1] for i in range(len(train_set))]
+        print(test_targets_print)
         np.random.seed(self._config['seed'])
         np.random.shuffle(indices)
         train_idx = indices[:train_set_size]
+        
         if validation_set_size > 0:
             valid_idx = indices[train_set_size:train_set_size +
                                 validation_set_size]
@@ -104,7 +113,12 @@ class TrainingConfigParser:
             # Assert that there are no overlapping datasets
             assert len(set.intersection(set(train_idx), set(valid_idx))) == 0
 
-        train_set = Subset(train_set, train_idx, data_transformation_train)
+        # TODO maybe save images here and afterwards to understand transform
+        train_set = Subset(train_set, train_idx, data_transformation_train) 
+        print("INDICES AFTER SHUFFLE IN TRAINING CONFIG PARSER")
+        print(train_idx)
+        test_targets_print_2= [train_set[i][1]  for i in range(len(train_set))]
+        print(test_targets_print_2)
 
         # Compute dataset lengths
         train_len, valid_len, test_len = len(train_set), 0, 0
@@ -113,10 +127,11 @@ class TrainingConfigParser:
         if test_set:
             test_len = len(test_set)
 
-        print(
-            f'Created {name} datasets with {train_len:,} training, {valid_len:,} validation and {test_len:,} test samples.\n',
-            f'Transformations during training: {train_set.transform}\n',
-            f'Transformations during evaluation: {test_set.transform}')
+        # TODO
+        #print(
+        #    f'Created {name} datasets with {train_len:,} training, {valid_len:,} validation and {test_len:,} test samples.\n',
+        #    f'Transformations during training: {train_set.transform}\n',
+        #    f'Transformations during evaluation: {test_set.transform}')
         return train_set, valid_set, test_set
 
     def create_transformations(self, mode, normalize=True):

@@ -1,4 +1,4 @@
-wandb_target_run: Beard_Subsets/gj7kdi60 # WandB training run for target model.
+wandb_target_run: plugandplay/Beard_Subsets/lb91e5jr # WandB training run for target model.
 wandb_evaluation_run: model_inversion_evaluation/lnwbk2i7 # WandB training run for evaluation model.
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
@@ -56,4 +56,4 @@ wandb: # Options for WandB logging.
   wandb_init_args: # WandB init arguments.
     project: Beard_Attacks
     save_code: true
-    name: Beard 0
+    name: Beard 100

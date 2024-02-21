@@ -18,7 +18,7 @@ class CelebA_Attributes(Dataset):
     """
     def __init__(self,
                  train,
-                 attributes,
+                 attributes=None,
                  ratio=None,
                  split_seed=42,
                  transform=None,
@@ -26,12 +26,10 @@ class CelebA_Attributes(Dataset):
                  download: bool = False
                  ):
         # Load default CelebA dataset
-        celeba = CustomCelebA(root=root,
+        my_celeba = CustomCelebA(root=root,
                         split='all',
                         target_type='attr')
 
-
-        celeba.targets=celeba.attr
       
         # provide index/indices for attributes 
         attributes = attributes 
@@ -47,11 +45,11 @@ class CelebA_Attributes(Dataset):
         if (len(attributes) == 0):
             raise ValueError('no attributes given to filter subset')
         if (len(attributes) == 1):
-            attr_mask = celeba.attr[:,attributes[0]] > 0  # takes indices of given attribute 
+            attr_mask = my_celeba.attr[:,attributes[0]] > 0  # takes indices of given attribute 
         if (len(attributes) > 1):
             attr_x_indices = [] # array to store bool values for each attribute
             for i in range(len(attributes)):
-                attr_x_indices.append(celeba.attr[:,attributes[i]] > 0)
+                attr_x_indices.append(my_celeba.attr[:,attributes[i]] > 0)
 
             attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
             for i in range(len(attr_x_indices)):
@@ -67,8 +65,8 @@ class CelebA_Attributes(Dataset):
             neg_indices = torch.where(attr_mask)[0] 
 
         # adjust to celeb a image ids (indexing starts with 1)
-        pos_indices += 1 
-        neg_indices += 1
+        #pos_indices += 1 
+        #neg_indices += 1
        
         # balance samples 50:50
         #if (len(neg_indices) > len(pos_indices)):
@@ -93,12 +91,13 @@ class CelebA_Attributes(Dataset):
             indices[i]: 1 if i < len(pos_indices) else 0 
             for i in range(len(indices))
         }
-    
+     
         # shuffle dataset
         np.random.seed(split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices)) # take 90% of data for training
-        train_idx = indices[:training_set_size]
+        #train_idx = indices[:training_set_size] # TODO 
+        train_idx = indices[:20]
         test_idx = indices[training_set_size:]
     
 
@@ -111,11 +110,19 @@ class CelebA_Attributes(Dataset):
 
         # Split dataset
         if train:
-            self.dataset = Subset(celeba, train_idx)
-            self.targets = np.array([targets_mapping[x] for x in train_idx])
+            print("INDICES in CELEB A given to parser")
+            print(train_idx)
+            self.targets =np.array([targets_mapping[x] for x in train_idx]) 
+            print(self.targets)
+            print('---')
+            self.dataset = Subset(my_celeba, train_idx)
+            #self.targets = np.array([targets_mapping[x] for x in train_idx]) #this must be higher up
             self.name = 'CelebA_Attributes_train'
+            print("INDICES created from shuffled Subset")
+            
+         
         else:
-            self.dataset = Subset(celeba, test_idx)
+            self.dataset = Subset(my_celeba, test_idx)
             self.targets = np.array([targets_mapping[x] for x in test_idx])
             self.name = 'CelebA_Attributes_test'
 
@@ -155,8 +162,6 @@ class CelebA1000(Dataset):
                    key=lambda item: item[1],
                    reverse=True))
         sorted_targets = list(ordered_dict.keys())[:1000]
-        print("targets: ", targets[:5])
-
 
         # Select the corresponding samples for train and test split
         indices = np.where(np.isin(targets, sorted_targets))[0]
@@ -300,7 +305,7 @@ class CustomCelebA(VisionDataset):
         return '\n'.join(lines).format(**self.__dict__)
 
 
-# XY test
+
 '''
 
 print("INSPECTION CELEBA1000")
@@ -330,8 +335,8 @@ print(attr_test[0])
 print(attr_test[3])
 print(attr_test[1])
 
-attr_test = CelebA_Attributes(train=True)
-print(len(attr_test))
 '''
+
+
 
 

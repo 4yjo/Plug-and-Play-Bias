@@ -4,6 +4,7 @@ import time
 from copy import copy
 
 import torch
+import torchvision
 
 from metrics.accuracy import Accuracy
 from utils.training_config_parser import TrainingConfigParser
@@ -55,6 +56,20 @@ def main():
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
 
+    outdir = "media/images" #just for testing
+    os.makedirs(outdir, exist_ok=True) #just for testing
+
+
+    for i, img in enumerate(train_set):
+        filename = f"{outdir}/img-{i}.png"
+        #print('train set ', train_set[i]) prints tensor holding image data and target
+        print(i, train_set[i][1]) 
+
+        torchvision.utils.save_image(train_set[i][0], filename) 
+    print('images saved')
+
+'''
+
     criterion = torch.nn.CrossEntropyLoss()
     metric = Accuracy
 
@@ -91,7 +106,7 @@ def main():
         wandb_init_args=config.wandb['args'],
         save_base_path=save_path,
         config_file=args.config)
-
+'''
 
 if __name__ == '__main__':
     main()
