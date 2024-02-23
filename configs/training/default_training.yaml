@@ -13,8 +13,9 @@ dataset:
   # validation_split_ratio: 0.2 # Alternative to validation_set_size, split is taken from the training set.
   image_size: 224 # Image size of training samples before application of transformations.
 
-attributes: [22] # For celeba_attributes, choose index e.g. goatie 16, mustache 22, no_beard 24, sideburns 30
-
+# For celeba_attributes, choose index e.g. goatie 16, mustache 22, no_beard 24, sideburns 30
+attributes: [8,9] #attibute the model is trained on 
+hidden_attributes: [20] #attribute for hidden bias in data
 
 transformations: # Transformations applied during training. 
                  # All transformations and parameters provided in torchvision.transforms could be specified.
@@ -43,7 +44,7 @@ lr_scheduler: # Option to provide a learning rate scheduler from torch.optim.
     gamma: 0.1
 
 training: # Select the training parameters.
-  num_epochs: 1 #TODO 50
+  num_epochs: 50
   batch_size: 128
   dataloader_num_workers: 8
   save_path: results/
