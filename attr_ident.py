@@ -37,6 +37,7 @@ def main():
             ["a portrait of a person with no"+attribute, "a portrait of a person with "+attribute]]
     '''
 
+    # note: Always double-check prompts
     prompts = [["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
             ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
             ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute]]
@@ -58,10 +59,9 @@ def main():
     #        }
     #    )
     
-    # Load CLIP 
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
+    # Load pretrained CLIP 
+    clip_model, clip_processor = load_clip()
+    
     image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
 
     if (image_location == 'wandb-weights'):
@@ -73,9 +73,13 @@ def main():
     get_images(run, image_location, G)
 
     #dataset with beard
-    identify_attributes(prompts, processor, model)
+    identify_attributes(prompts, clip_processor, clip_model)
 
-
+def load_clip():
+    # use transformers to load pretrained clip model and processor
+    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    return clip_model, clip_processor
    
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
@@ -150,7 +154,7 @@ def get_images(run, image_location, G=None):
             torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
 
 def identify_attributes(prompts, clip_processor, clip_model):
-     #automatic evaluation of all images 
+     #automatic evaluation of all images in "media/images" 
     decisions = []
     for i in os.listdir("media/images"):
         image = Image.open("media/images/" +str(i)) 
@@ -168,8 +172,9 @@ def identify_attributes(prompts, clip_processor, clip_model):
         print(highest_prop, i)
         decision = torch.round(torch.sum(highest_prop)/len(prompts))
         decisions.append(decision.item()) 
-    acc_beard = np.sum(decisions)/len(decisions)
-    print("Percentage with beard: ", acc_beard)  
+    acc_attr = np.sum(decisions)/len(decisions)
+    print("Percentage with attr: ", acc_attr) 
+    return acc_attr 
 
     #wandb.log({"accurracy": acc_beard})
     #wandb.finish()

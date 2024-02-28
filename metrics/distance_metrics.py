@@ -14,17 +14,19 @@ from utils.stylegan import create_image
 class DistanceEvaluation():
 
     def __init__(self, model, generator, img_size, center_crop_size, dataset,
-                 seed):
+                 seed, attr=None, hidden_attr=None):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.dataset_name = dataset
         self.model = model
         self.center_crop_size = center_crop_size
         self.img_size = img_size
         self.seed = seed
-        self.train_set = self.prepare_dataset()
+        self.train_set = self.prepare_dataset(attr, hidden_attr) 
         self.generator = generator
+        self.attr=attr
+        self.hidden_attr=hidden_attr
 
-    def prepare_dataset(self):
+    def prepare_dataset(self, attr, hidden_attr):
         # Build the datasets
         if self.dataset_name == 'facescrub':
             transform = T.Compose([
@@ -36,7 +38,7 @@ class DistanceEvaluation():
                                   train=True,
                                   transform=transform,
                                   split_seed=self.seed)
-        elif self.dataset_name == 'celeba_attributes':
+        elif self.dataset_name == 'celeba_attr':
             transform = T.Compose([
                 T.Resize(self.img_size, antialias=True),
                 T.ToTensor(),
@@ -45,7 +47,7 @@ class DistanceEvaluation():
             ])
             train_set = CelebA_Attributes(train=True,
                                    transform=transform,
-                                   split_seed=self.seed)
+                                   split_seed=self.seed, attr=attr, hidden_attr=hidden_attr) # TODO need attributes & hidden attributes here
         elif self.dataset_name == 'celeba_identities':
             transform = T.Compose([
                 T.Resize(self.img_size, antialias=True),
@@ -68,7 +70,7 @@ class DistanceEvaluation():
                                      split_seed=self.seed)
         else:
             raise RuntimeError(
-                f'{self.dataset_name} is no valid dataset name. Chose of of [facescrub, celeba_identities, celeba_attributes, stanford_dogs].'
+                f'{self.dataset_name} is no valid dataset name. Chose of of [facescrub, celeba_identities, celeba_attr, stanford_dogs].'
             )
 
         return train_set

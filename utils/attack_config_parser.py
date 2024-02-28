@@ -20,10 +20,14 @@ class AttackConfigParser:
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
         self._config = config
+        
 
-    def create_target_model(self):
-        if 'wandb_target_run' in self._config:
+    def create_target_model(self,wandb_target_run=None):
+        if wandb_target_run is not None: #provided in auto_attack.py
+            model = load_model(wandb_target_run)
+        elif 'wandb_target_run' in self._config:
             model = load_model(self._config['wandb_target_run'])
+    
         elif 'target_model' in self._config:
             config = self._config['target_model']
             model = Classifier(num_classes=config['num_classes'],
@@ -40,10 +44,11 @@ class AttackConfigParser:
     def get_target_dataset(self):
         try:
             api = wandb.Api(timeout=60)
-            run = api.run(self._config['wandb_target_run'])
+            run = api.run(self._config['wandb_target_run']) # TODO automatisation
             return run.config['Dataset'].strip().lower()
         except:
             return self._config['dataset']
+      
 
     def create_evaluation_model(self):
         if 'wandb_evaluation_run' in self._config:
@@ -183,6 +188,7 @@ class AttackConfigParser:
     @property
     def wandb_target_run(self):
         return self._config['wandb_target_run']
+
 
     @property
     def logging(self):
