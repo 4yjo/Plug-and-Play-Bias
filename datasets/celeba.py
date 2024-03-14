@@ -38,6 +38,8 @@ class CelebA_Attributes(Dataset):
         hidden_attributes = hidden_attributes # TODO assumes [male] or [blond, brown]
         print("Attributes: ", attributes)
         print("Hidden Attributes: ", hidden_attributes)
+        ratio = ratio
+        print("Ratio: ", ratio)
 
         # choose if attribute should be negated 
         # (e.g. to get people with beard using negation of no_beard attribute)
@@ -45,6 +47,9 @@ class CelebA_Attributes(Dataset):
 
        
         def create_idx(attr, hidden_attr=None, ratio=None):
+            print("Attributes: ", attr)
+            print("Hidden Attributes: ", hidden_attr)
+            print("Ratio: ", ratio)
             if hidden_attr is None:
                 attr_mask = my_celeba.attr[:,attr] > 0 #e.g all blond people
                 class_idx = torch.where(attr_mask)[0] 
@@ -82,8 +87,14 @@ class CelebA_Attributes(Dataset):
         c1_attr = attributes[0] # TODO maybe change
         c2_attr = attributes[1]
 
+        print('Class 1 idx created with: ')
         class1_idx = create_idx(c1_attr, hidden_attributes, ratio)
+
+       # ratio2= 0.5 #always use balanced data
+        print('Class 2 idx created with: ')
         class2_idx = create_idx(c2_attr)
+
+        
             
         '''
 

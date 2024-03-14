@@ -55,9 +55,11 @@ class TrainingConfigParser:
             test_set = CelebA1000(train=False,
                                   transform=data_transformation_test)
         elif name == 'celeba_attributes':
-            train_set = CelebA_Attributes(train=True, attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = self.ratio)
+            print('create trainset')
+            train_set = CelebA_Attributes(train=True, attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = 0.3)
+            print('create testset')
             test_set = CelebA_Attributes(train=False,
-                                    transform=data_transformation_test,attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = self.ratio)
+                                    transform=data_transformation_test,attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = 0.3)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,
