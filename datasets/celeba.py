@@ -27,141 +27,77 @@ class CelebA_Attributes(Dataset):
                  download: bool = False
                  ):
         # Load default CelebA dataset
-        my_celeba = CustomCelebA(root=root,
+        self.celeba_attr = CustomCelebA(root=root,
                         split='all',
                         target_type='attr')
         
-       # my_celeba.targets=my_celeba.attr #WHAT DOES THAT DO TODO
 
-        # provide index/indices for attributes 
-        attributes = attributes  # TODO assumes [c1 attr, c2 attr]
-        hidden_attributes = hidden_attributes # TODO assumes [male] or [blond, brown]
-        print("Attributes: ", attributes)
-        print("Hidden Attributes: ", hidden_attributes)
+        # get attribute via index provided in config file (e.g. default_training.yaml)
+        attributes = attributes  
+        hidden_attributes = hidden_attributes 
+        self.split_seed = split_seed
 
         # choose if attribute should be negated 
         # (e.g. to get people with beard using negation of no_beard attribute)
         attr_negation = False # default is false
 
-       
-        def create_idx(attr, hidden_attr=None, ratio=None):
-            if hidden_attr is None:
-                attr_mask = my_celeba.attr[:,attr] > 0 #e.g all blond people
-                class_idx = torch.where(attr_mask)[0] 
-                return class_idx
 
-            else:
-                attr_mask = my_celeba.attr[:,attr] > 0
-                # aditionally filter for hidden attribute
-                hidden_attr_mask = my_celeba.attr[:, hidden_attr[0]] >0  #e.g. male
-                if (len(hidden_attr)==1):
-                    neg_hidden_attr_mask = ~hidden_attr_mask #invert mask e.g. female = all entries where 'male' is not 1
-                if(len(hidden_attr)==2):
-                    neg_hidden_attr_mask = my_celeba.attr[:, hidden_attr[1]] >0 
-            
-                hidden_pos = torch.where(attr_mask & hidden_attr_mask)[0] #e.g. all 'blond' and 'male'
-                hidden_neg = torch.where(attr_mask & neg_hidden_attr_mask)[0] #e.g. all 'blond' and not 'male'
-
-                ratio = float(ratio) # percentage of samples holding the hidden attribute
-
-                # balance samples for hidden attribute according to ratio
-                # max nr of samples --> ratio of hidden attribute = 1.0
-                total_samples = len(hidden_pos)
-
-                hidden_pos_idx = hidden_pos[:int(total_samples*ratio)]
-                hidden_neg_idx = hidden_neg[:int(total_samples*(1-ratio))]
-                # TODO check what happens if there are not enough neg samples
-
-                class_idx = np.concatenate([hidden_pos_idx, hidden_neg_idx])
-                #shuffle to distribute hidden attribute among idx
-                np.random.seed(split_seed)
-                np.random.shuffle(class_idx)
-              
-                return class_idx
-
-         # create class 1 and class two data samples
-
+        # create subsets for class 1 and class 2
+        if (len(attributes) == 0):
+            raise Exception('please specify 2 attributes in config file')
         c1_attr = attributes[0] # TODO maybe change to also allow attribute negations
         c2_attr = attributes[1]
 
-        class1_idx = create_idx(c1_attr, hidden_attributes, ratio)
-        class2_idx = create_idx(c2_attr, hidden_attributes, 0.5)
-            
-        '''
-
-        # get indices of image that are true for (all) attribute(s) from celeba attr tensor
-        if (len(attributes) == 0):
-            raise ValueError('no attributes given to filter subset')
-        if (len(attributes) == 1):
-            attr_mask = my_celeba.attr[:,attributes[0]] > 0  # takes indices of given attribute 
-            hidden_attr_mask = my_celeba.attr[:,hidden_attributes[0]] > 0 
-        
-    
-        if (len(attributes) > 1):
-            attr_x_indices = [] # array to store bool values for each attribute
-            for i in range(len(attributes)):
-                attr_x_indices.append(my_celeba.attr[:,attributes[i]] > 0)
-
-            attr_mask = torch.zeros(202599, dtype= torch.bool) #initialize tensor of size celeba.attr
-            for i in range(len(attr_x_indices)):
-                attr_mask = attr_mask | attr_x_indices[i] #bitwise or to select indices that hold at least one attribute
-        
-        '''
-       
-        # balance samples 50:50 to make class 1 and class 2 the same size
-        if (len(class2_idx) > len(class1_idx)):
-            class2_idx = class2_idx[:len(class1_idx)] 
+        self.class1_idx = self.create_idx(c1_attr, hidden_attributes, ratio)
+        self.class2_idx = self.create_idx(c2_attr, hidden_attributes, 0.5)
+     
+        # make class 1 and class 2 the same size
+        if (len(self.class2_idx) > len(self.class1_idx)):
+            self.class2_idx = self.class2_idx[:len(self.class1_idx)] 
         else:
             raise Exception('class 2 is smaller than class 1')
 
-        
-        # Assert that there are no overlapping datasets
-        amb_samples = set.intersection(set(class1_idx), set(class2_idx))
-        if(len(amb_samples) > 5):
-            raise Exception("Too many samples with ambiguous labels")
+        # check for overlapping samples to discard 
+        self.discarded_idx = self.discarded_samples()
 
-        self.amb_samples = amb_samples
-      
-        #assert len(set.intersection(set(class1_idx), set(class2_idx))) == 0
-
-        # check balance of hidden attribute for classes 
+        # sanity check for hidden attribute ratio
         c1 = 0
-        for i in class1_idx:
-            _, tensor_elements = my_celeba[int(i)]
+        for i in self.class1_idx:
+            _, tensor_elements = self.celeba_attr[int(i)]
             c1 += tensor_elements[hidden_attributes[0]]
-        print("ratio hidden attr class1: ", c1/len(class2_idx))
+        print("ratio hidden attr class1: ", c1/len(self.class1_idx))
 
         c2 = 0
-        for i in class2_idx:
-            _, tensor_elements = my_celeba[int(i)]
+        for i in self.class2_idx:
+            _, tensor_elements = self.celeba_attr[int(i)]
             c2 += tensor_elements[20]
-        print("ratio hidden attr class2: ", c2/len(class2_idx))
-         
-        indices = np.concatenate([class1_idx, class2_idx])
+        print("ratio hidden attr class2: ", c2/len(self.class2_idx))
+
+
+        # define dataset 
+        indices = np.concatenate([self.class1_idx, self.class2_idx])
         
         # assign all elements of class 1 the target value 1, and those of class 2 the target value 0
         targets_mapping = {
-            indices[i]: 1 if i < len(class1_idx) else 0 
+            indices[i]: 1 if i < len(self.class1_idx) else 0 
             for i in range(len(indices))
         }
 
         # remove samples with ambiguous labels
-        if (len(amb_samples) < 0):
-            for sample_idx in amb_samples:
+        if (len(self.discarded_idx) < 0):
+            for sample_idx in self.discarded_idx:
                 del targets_mapping[str(sample_idx)]
-            print('removed ambiguous samples: ', amb_samples)
+            print('removed ambiguous samples: ', self.discarded_idx)
 
      
         # shuffle dataset
-        np.random.seed(split_seed)
+        np.random.seed(self.split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices)) # take 90% of data for training
         train_idx = indices[:training_set_size]
         test_idx = indices[training_set_size:]
 
-        # Assert that there are no overlapping datasets
-        print("removed samples with ambiguous labels: ", set.intersection(set(train_idx), set(test_idx)))
-        #assert len(set.intersection(set(train_idx), set(test_idx))) == 0
+        assert len(set.intersection(set(train_idx), set(test_idx))) == 0 
 
         # Set transformations
         self.transform = transform
@@ -169,19 +105,14 @@ class CelebA_Attributes(Dataset):
 
         # Split dataset
         if train:
-            #print("INDICES in CELEB A given to parser")
-            #print(train_idx)
             self.targets =np.array([targets_mapping[x] for x in train_idx]) 
-            #print(self.targets)
-            #print('---')
-            self.dataset = Subset(my_celeba, train_idx)
+            self.dataset = Subset(self.celeba_attr, train_idx)
             self.name = 'CelebA_Attributes_train'
-            #print("INDICES created from shuffled Subset")
             
          
         else:
             self.targets = np.array([targets_mapping[x] for x in test_idx])
-            self.dataset = Subset(my_celeba, test_idx)
+            self.dataset = Subset(self.celeba_attr, test_idx)
             self.name = 'CelebA_Attributes_test'
 
     def __len__(self):
@@ -193,6 +124,54 @@ class CelebA_Attributes(Dataset):
             return self.transform(im), self.targets[idx]
         else:
             return im, self.targets[idx]
+
+    def create_idx(self, attr, hidden_attr=None, ratio=None):
+            if hidden_attr is None:
+                # e.g. puts all blond people in a class without checking hidden_attribute
+                # NOTE: it is advised to provide the hidden attribute and a ratio of 0.5 to guarantee equal distribution
+                attr_mask = self.celeba_attr.attr[:,attr] > 0 #e.g all blond people
+                class_idx = torch.where(attr_mask)[0] 
+                return class_idx
+
+            else:
+                attr_mask = self.celeba_attr.attr[:,attr] > 0
+                # aditionally filter for hidden attribute
+                hidden_attr_mask = self.celeba_attr.attr[:, hidden_attr[0]] >0  #e.g. male
+                if (len(hidden_attr)==1):
+                    neg_hidden_attr_mask = ~hidden_attr_mask #invert mask e.g. female = all entries where 'male' is not 1
+                if(len(hidden_attr)==2):
+                    neg_hidden_attr_mask = self.celeba_attr.attr[:, hidden_attr[1]] >0 
+            
+                hidden_pos = torch.where(attr_mask & hidden_attr_mask)[0] #e.g. all 'blond' and 'male'
+                hidden_neg = torch.where(attr_mask & neg_hidden_attr_mask)[0] #e.g. all 'blond' and not 'male'
+
+                ratio = float(ratio) # percentage of samples holding the hidden attribute
+
+                # balance hidden attribute in samples according to ratio
+                # max nr of samples --> ratio of hidden attribute = 1.0
+                total_samples = len(hidden_pos)
+
+                hidden_pos_idx = hidden_pos[:int(total_samples*ratio)]
+                hidden_neg_idx = hidden_neg[:int(total_samples*(1-ratio))]
+                # TODO check what happens if there are not enough neg samples
+
+                class_idx = np.concatenate([hidden_pos_idx, hidden_neg_idx])
+
+                #shuffle to distribute hidden attribute among idx
+                np.random.seed(self.split_seed)
+                np.random.shuffle(class_idx)
+              
+                return class_idx
+    
+    def discarded_samples(self):        
+            # find samples with ambiguous samples (labeled true for class 1 AND class 2)
+            class1_idx = self.class1_idx
+            class2_idx = self.class2_idx
+            discarded_idx = set.intersection(set(class1_idx), set(class2_idx))
+            if(len(discarded_idx) > 5):
+                raise Exception("Too many samples with ambiguous labels")
+            else:
+                return discarded_idx
 
 
         
@@ -222,10 +201,8 @@ class CelebA1000(Dataset):
 
         # Select the corresponding samples for train and test split
         indices = np.where(np.isin(targets, sorted_targets))[0]
-        print("indices ", indices)
-        print(len(indices))
         
-        np.random.seed(split_seed)
+        np.random.seed(self.split_seed)
         np.random.shuffle(indices)
         training_set_size = int(0.9 * len(indices))
         train_idx = indices[:training_set_size]

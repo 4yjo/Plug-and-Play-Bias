@@ -31,7 +31,7 @@ def main():
         )
         exit()
 
-    print("Ratio of images with attribute: ", args.ratio)
+    print("Ratio of hidden attribute in class 1: ", args.ratio)
 
 
     # Load json config file
@@ -54,9 +54,10 @@ def main():
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
 
+    #TODO add information about discarded data for wandb here
 
     '''
-    # Save images to inspect train set #
+    # Save images locally to inspect train set 
     outdir = "testmedia/images" #just for testing
     os.makedirs(outdir, exist_ok=True) #just for testing
 

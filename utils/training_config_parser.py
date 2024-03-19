@@ -23,7 +23,7 @@ class TrainingConfigParser:
             config = yaml.safe_load(file)
         self._config = config
         self.ratio = ratio
-
+    
     def create_model(self):
         model_config = self._config['model']
         print(model_config)
@@ -34,6 +34,7 @@ class TrainingConfigParser:
         dataset_config = self._config['dataset']
         name = dataset_config['type'].lower()
         train_set, valid_set, test_set = None, None, None
+
 
         data_transformation_train = self.create_transformations(
             mode='training', normalize=True)
@@ -116,6 +117,7 @@ class TrainingConfigParser:
         if test_set:
             test_len = len(test_set)
 
+        # add discarded here  -> call from celeba_attr class TODO
     
         print(
             f'Created {name} datasets with {train_len:,} training, {valid_len:,} validation and {test_len:,} test samples.\n',
