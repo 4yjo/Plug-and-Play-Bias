@@ -190,6 +190,8 @@ class Classifier(BaseModel):
             test_data=None,
             optimizer=None,
             lr_scheduler=None,
+            ratio=None, #used for celeb A attribute class
+            run_name=None,  #if run name is specified in command line --run_name
             criterion=nn.CrossEntropyLoss(),
             metric=Accuracy,
             rtpt=None,
@@ -218,7 +220,10 @@ class Classifier(BaseModel):
                 wandb_init_args = dict()
 
             wandb_config = {
-                "Dataset": config.dataset['type'],
+                'Dataset': config.dataset['type'],
+                'Attributes': config.attributes,
+                'Hidden Attributes': config.hidden_attributes,
+                'Ratio': float(ratio), 
                 'Epochs': num_epochs,
                 'Batch_size': batch_size,
                 'Seed': config.seed,
@@ -254,6 +259,7 @@ class Classifier(BaseModel):
                 wandb_config['Testset_size'] = len(test_data)
 
             wandb.init(**wandb_init_args, config=wandb_config, reinit=True)
+            wandb.run.name= run_name #update run name if specified in command line prompt
             wandb.watch(self.model)
             if config_file:
                 wandb.save(config_file)

@@ -4,6 +4,7 @@ import time
 from copy import copy
 
 import torch
+import torchvision
 
 from metrics.accuracy import Accuracy
 from utils.training_config_parser import TrainingConfigParser
@@ -13,12 +14,15 @@ def main():
     # Define and parse arguments
     parser = argparse.ArgumentParser(
         description='Training a target classifier')
+    parser.add_argument('--ratio', default=0.5) #add arguments that can be specified in CLI
+    parser.add_argument('--run_name', type=str, default=None)
     parser.add_argument('-c',
                         '--config',
                         default=None,
                         type=str,
                         dest="config",
                         help='Config .json file path (default: None)')
+    
     args = parser.parse_args()
 
     if not args.config:
@@ -27,8 +31,15 @@ def main():
         )
         exit()
 
+    print("Ratio of hidden attribute in class 1: ", args.ratio)
+
+
     # Load json config file
-    config = TrainingConfigParser(args.config.strip())
+    config = TrainingConfigParser(args.config.strip(), ratio=args.ratio)
+
+    # Include optional arguments from Command Line Prompt
+    ratio = args.ratio
+    run_name = args.run_name
 
     # Set seeds and make deterministic
     seed = config.seed
@@ -42,6 +53,24 @@ def main():
 
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
+
+    #TODO add information about discarded data for wandb here
+
+    '''
+    # Save images locally to inspect train set 
+    outdir = "testmedia/images" #just for testing
+    os.makedirs(outdir, exist_ok=True) #just for testing
+
+    for i, img in enumerate(train_set[:10]):
+        filename = f"{outdir}/img-{i}.png"
+        #print('train set ', train_set[i]) prints tensor holding image data and target
+        print(i, train_set[i][1]) 
+
+        torchvision.utils.save_image(train_set[i][0], filename) 
+    print('images saved')
+    '''
+
+
 
     criterion = torch.nn.CrossEntropyLoss()
     metric = Accuracy
@@ -68,6 +97,8 @@ def main():
         metric=metric,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
+        ratio=ratio,
+        run_name=run_name,
         rtpt=rtpt,
         config=config,
         batch_size=config.training['batch_size'],
@@ -81,3 +112,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

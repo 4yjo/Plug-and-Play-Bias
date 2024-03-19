@@ -17,7 +17,7 @@ from torch.utils.data import TensorDataset
 
 from attacks.final_selection import perform_final_selection
 from attacks.optimize import Optimization
-from datasets.custom_subset import ClassSubset
+from datasets.custom_subset import ClassSubset, Subset
 from metrics.classification_acc import ClassificationAccuracy
 from metrics.fid_score import FID_Score
 from metrics.prcd import PRCD
@@ -40,8 +40,11 @@ def main():
 
     # Define and parse attack arguments
     parser = create_parser()
+    parser.add_argument('--wandb_target_run', type=str, default=None) # "project/run-id"
+    parser.add_argument('--attr', type=str, default=None)
+    parser.add_argument('--hidden_attr', type=str, default=None)
     config, args = parse_arguments(parser)
-
+    
     # Set seeds
     torch.manual_seed(config.seed)
     random.seed(config.seed)
@@ -68,9 +71,20 @@ def main():
     num_ws = G.num_ws
 
     # Load target model and set dataset
-    target_model = config.create_target_model()
+    attributes = args.attr
+    hidden_attributes = args.hidden_attr
+    wandb_target_run = args.wandb_target_run
+    api = wandb.Api(timeout=60)
+    run = api.run(wandb_target_run)
+    ratio = run.config['Ratio']
+    #TODO log attributes to config when training target model, so it does not has to be specified here
+    print(ratio)
+    print(attributes)
+    print(hidden_attributes)
+    print(wandb_target_run)
+    target_model = config.create_target_model(wandb_target_run)
     target_model_name = target_model.name
-    target_dataset = config.get_target_dataset()
+    target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
 
     # Distribute models
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
@@ -116,7 +130,7 @@ def main():
             + 2 * int(math.ceil(config.final_selection['samples_per_target'] * len(set(targets.cpu().tolist())) / (batch_size * 3))) \
             + 2 * len(set(targets.cpu().tolist()))
         rtpt = RTPT(name_initials='AM',
-                    experiment_name='Model_Inversion',
+                    experiment_name='Model_Inversion_Attack',
                     max_iterations=max_iterations)
         rtpt.start()
 
@@ -170,6 +184,9 @@ def main():
         torch.save(w_optimized_unselected.detach(), optimized_w_path)
         wandb.save(optimized_w_path)
 
+    # save images locally for clip evaluation
+    
+
     ####################################
     #          Filter Results          #
     ####################################
@@ -203,6 +220,8 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
+
+
     ####################################
     #         Attack Accuracy          #
     ####################################
@@ -215,7 +234,7 @@ def main():
         evaluation_model.eval()
         class_acc_evaluator = ClassificationAccuracy(evaluation_model,
                                                      device=device)
-        # TODO add acc_top5
+  
         acc_top1, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.compute_acc(
             w_optimized_unselected,
             targets,
@@ -237,8 +256,10 @@ def main():
         #    f'\nUnfiltered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}',
         #    f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
         #)
-
-        print('unfiltered evaluation') #TODO change (see above)
+        print(
+           f'\nUnfiltered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}',
+           f', correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+        )
 
         # Compute attack accuracy on filtered samples
         if config.final_selection:
@@ -257,12 +278,11 @@ def main():
                     precision_list)
                 wandb.save(filename_precision)
 
-            #print(
-            #    f'Filtered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}, ',
-            #    f'accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
-            #)
-            #TODO uncomment print
-
+            print(
+                f'Filtered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}, ',
+                f'correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+            )
+            
         del evaluation_model
 
     except Exception:
@@ -288,10 +308,13 @@ def main():
         attack_dataset = TensorDataset(final_w, final_targets)
         attack_dataset.targets = final_targets
         training_dataset = create_target_dataset(target_dataset,
-                                                 target_transform)
-        training_dataset = ClassSubset(
-            training_dataset,
-            target_classes=torch.unique(final_targets).cpu().tolist())
+                                             target_transform, attributes, hidden_attributes, ratio)
+       
+        # TODO use this for more than 2 classes, e.g. CelebA Identities
+        #training_dataset = ClassSubset(
+        #    training_dataset,
+        #    target_classes=torch.unique(final_targets).cpu().tolist())
+
 
         # compute FID score
         fid_evaluation = FID_Score(training_dataset,
@@ -345,7 +368,7 @@ def main():
         evaluate_inception = DistanceEvaluation(evaluation_model_dist,
                                                 synthesis, 299,
                                                 config.attack_center_crop,
-                                                target_dataset, config.seed)
+                                                target_dataset, config.seed, attributes, hidden_attributes)
         avg_dist_inception, mean_distances_list = evaluate_inception.compute_dist(
             final_w,
             final_targets,
@@ -565,6 +588,8 @@ def init_wandb_logging(optimizer, target_model_name, config, args):
             'name'] = f'{optimizer_name}_{lr}_{target_model_name}'
     wandb_config = config.create_wandb_config()
     run = wandb.init(config=wandb_config, **config.wandb['wandb_init_args'])
+    wandb.config.update(args) # adds all of the arguments as config variables to attack loggin on wandb
+
     wandb.save(args.config)
     return run
 
@@ -620,6 +645,9 @@ def log_final_images(imgs, predictions, max_confidences, target_confidences,
     ]
     wandb.log({'final_images': wand_imgs})
 
+def save_final_images():
+    #TODO save final images to media/images
+    pass
 
 def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, 
                         avg_dist_facenet, avg_dist_eval, fid_score, precision,

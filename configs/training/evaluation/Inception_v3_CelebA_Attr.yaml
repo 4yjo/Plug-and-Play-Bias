@@ -11,6 +11,9 @@ dataset:
   validation_set_size: 0
   image_size: 299
 
+attributes: [9,8]
+hidden_attributes: [20]
+
 transformations:
   RandomResizedCrop:
     size: [299, 299]
@@ -51,5 +54,5 @@ wandb:
   enable_logging: true
   args:
     project: model_inversion_evaluation
-    name: Inception_V3_CelebA_Attr
+    name: Haircolor & Gender
     save_code: true

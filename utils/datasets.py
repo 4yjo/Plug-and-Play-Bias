@@ -85,13 +85,14 @@ def get_stanford_dogs_class_to_idx():
     return class_to_idx
 
 
-def create_target_dataset(dataset_name, transform):
+def create_target_dataset(dataset_name, transform, attributes=None, hidden_attributes=None, ratio=None):
     if dataset_name.lower() == 'facescrub':
         return FaceScrub(group='all',
                          train=True,
                          transform=transform)
     elif dataset_name.lower() == 'celeba_attributes':
-        return CelebA_Attributes(train=True, transform=transform)
+        return CelebA_Attributes(train=True, attributes=attributes, 
+                                 hidden_attributes=hidden_attributes,ratio=ratio, transform=transform)
     elif dataset_name.lower() == 'celeba_identities':
         return CelebA1000(train=True, transform=transform)
     elif 'stanford_dogs' in dataset_name.lower():

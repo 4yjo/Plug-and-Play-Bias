@@ -18,11 +18,12 @@ from utils.datasets import get_normalization
 
 class TrainingConfigParser:
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, ratio):
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
         self._config = config
-
+        self.ratio = ratio
+    
     def create_model(self):
         model_config = self._config['model']
         print(model_config)
@@ -33,6 +34,7 @@ class TrainingConfigParser:
         dataset_config = self._config['dataset']
         name = dataset_config['type'].lower()
         train_set, valid_set, test_set = None, None, None
+
 
         data_transformation_train = self.create_transformations(
             mode='training', normalize=True)
@@ -54,9 +56,11 @@ class TrainingConfigParser:
             test_set = CelebA1000(train=False,
                                   transform=data_transformation_test)
         elif name == 'celeba_attributes':
-            train_set = CelebA_Attributes(train=True)
+            print('create trainset')
+            train_set = CelebA_Attributes(train=True, attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = self.ratio)
+            print('create testset')
             test_set = CelebA_Attributes(train=False,
-                                    transform=data_transformation_test)
+                                    transform=data_transformation_test,attributes=self._config['attributes'], hidden_attributes=self._config['hidden_attributes'], ratio = self.ratio)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,
@@ -90,11 +94,12 @@ class TrainingConfigParser:
                 f'Specified training and validation sets are larger than full dataset. \n\tTaking validation samples from training set.'
             )
             train_set_size = len(train_set) - validation_set_size
-        # Split datasets into train and test split and set transformations
+
         indices = list(range(len(train_set)))
         np.random.seed(self._config['seed'])
         np.random.shuffle(indices)
         train_idx = indices[:train_set_size]
+        
         if validation_set_size > 0:
             valid_idx = indices[train_set_size:train_set_size +
                                 validation_set_size]
@@ -103,7 +108,7 @@ class TrainingConfigParser:
             # Assert that there are no overlapping datasets
             assert len(set.intersection(set(train_idx), set(valid_idx))) == 0
 
-        train_set = Subset(train_set, train_idx, data_transformation_train)
+        train_set = Subset(train_set, train_idx, data_transformation_train) 
 
         # Compute dataset lengths
         train_len, valid_len, test_len = len(train_set), 0, 0
@@ -112,6 +117,8 @@ class TrainingConfigParser:
         if test_set:
             test_len = len(test_set)
 
+        # add discarded here  -> call from celeba_attr class TODO
+    
         print(
             f'Created {name} datasets with {train_len:,} training, {valid_len:,} validation and {test_len:,} test samples.\n',
             f'Transformations during training: {train_set.transform}\n',
@@ -206,6 +213,14 @@ class TrainingConfigParser:
     @property
     def dataset(self):
         return self._config['dataset']
+
+    @property
+    def attributes(self):
+        return self._config['attributes']
+    
+    @property
+    def hidden_attributes(self):
+        return self._config['hidden_attributes']
 
     @property
     def optimizer(self):
