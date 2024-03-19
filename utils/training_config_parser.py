@@ -93,13 +93,8 @@ class TrainingConfigParser:
                 f'Specified training and validation sets are larger than full dataset. \n\tTaking validation samples from training set.'
             )
             train_set_size = len(train_set) - validation_set_size
-        #TODO remove all print statements
-        # Split datasets into train and test split and set transformations
-        #print("TARGETS BEFORE SHUFFLE IN TRAINING CONFIG PARSER")
+
         indices = list(range(len(train_set)))
-        #print(indices)
-        #test_targets_print= [train_set[i][1] for i in range(len(train_set))]
-        #print(test_targets_print)
         np.random.seed(self._config['seed'])
         np.random.shuffle(indices)
         train_idx = indices[:train_set_size]
@@ -112,12 +107,7 @@ class TrainingConfigParser:
             # Assert that there are no overlapping datasets
             assert len(set.intersection(set(train_idx), set(valid_idx))) == 0
 
-        # TODO maybe save images here and afterwards to understand transform
         train_set = Subset(train_set, train_idx, data_transformation_train) 
-        #print("INDICES AFTER SHUFFLE IN TRAINING CONFIG PARSER")
-        #print(train_idx)
-        #test_targets_print_2= [train_set[i][1]  for i in range(len(train_set))]
-        #print(test_targets_print_2)
 
         # Compute dataset lengths
         train_len, valid_len, test_len = len(train_set), 0, 0
@@ -223,6 +213,14 @@ class TrainingConfigParser:
         return self._config['dataset']
 
     @property
+    def attributes(self):
+        return self._config['attributes']
+    
+    @property
+    def hidden_attributes(self):
+        return self._config['hidden_attributes']
+
+    @property
     def optimizer(self):
         return self._config['optimizer']
 
@@ -241,7 +239,6 @@ class TrainingConfigParser:
     @property
     def seed(self):
         return self._config['seed']
-    
 
     @property
     def wandb(self):

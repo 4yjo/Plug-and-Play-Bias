@@ -220,11 +220,13 @@ class Classifier(BaseModel):
                 wandb_init_args = dict()
 
             wandb_config = {
-                "Dataset": config.dataset['type'],
+                'Dataset': config.dataset['type'],
+                'Attributes': config.attributes,
+                'Hidden Attributes': config.hidden_attributes,
+                'Ratio': float(ratio), 
                 'Epochs': num_epochs,
                 'Batch_size': batch_size,
                 'Seed': config.seed,
-                'Ratio': ratio, 
                 'Initial_lr': optimizer.param_groups[0]['lr'],
                 'Architecture': self.architecture,
                 'Pretrained': self.pretrained,

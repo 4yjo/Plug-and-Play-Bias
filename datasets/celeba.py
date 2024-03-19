@@ -73,6 +73,10 @@ class CelebA_Attributes(Dataset):
                 # TODO check what happens if there are not enough neg samples
 
                 class_idx = np.concatenate([hidden_pos_idx, hidden_neg_idx])
+                #shuffle to distribute hidden attribute among idx
+                np.random.seed(split_seed)
+                np.random.shuffle(class_idx)
+              
                 return class_idx
 
          # create class 1 and class two data samples
@@ -81,7 +85,7 @@ class CelebA_Attributes(Dataset):
         c2_attr = attributes[1]
 
         class1_idx = create_idx(c1_attr, hidden_attributes, ratio)
-        class2_idx = create_idx(c2_attr)
+        class2_idx = create_idx(c2_attr, hidden_attributes, 0.5)
             
         '''
 
@@ -102,15 +106,6 @@ class CelebA_Attributes(Dataset):
             for i in range(len(attr_x_indices)):
                 attr_mask = attr_mask | attr_x_indices[i] #bitwise or to select indices that hold at least one attribute
         
-        
-        # get image ids (= index of images according to true/false value in attr mask)
-        if not attr_negation:
-            class1_idx = np.concatenate([class1_idx, class2_idx])
-            class2_idx = torch.where(~attr_mask)[0] 
-        else:
-            #TODO this wont work here
-            class1_idx = torch.where(~attr_mask)[0]
-            class2_idx = torch.where(attr_mask)[0] 
         '''
        
         # balance samples 50:50 to make class 1 and class 2 the same size
@@ -124,20 +119,27 @@ class CelebA_Attributes(Dataset):
         amb_samples = set.intersection(set(class1_idx), set(class2_idx))
         if(len(amb_samples) > 5):
             raise Exception("Too many samples with ambiguous labels")
+
+        self.amb_samples = amb_samples
       
         #assert len(set.intersection(set(class1_idx), set(class2_idx))) == 0
 
-        # check balance of hidden attribute for class 
-        counter = 0
+        # check balance of hidden attribute for classes 
+        c1 = 0
+        for i in class1_idx:
+            _, tensor_elements = my_celeba[int(i)]
+            c1 += tensor_elements[hidden_attributes[0]]
+        print("ratio hidden attr class1: ", c1/len(class2_idx))
+
+        c2 = 0
         for i in class2_idx:
             _, tensor_elements = my_celeba[int(i)]
-            counter += tensor_elements[20]
-        print("ratio hidden attr class2: ", counter/len(class2_idx))
-       
-        
+            c2 += tensor_elements[20]
+        print("ratio hidden attr class2: ", c2/len(class2_idx))
+         
         indices = np.concatenate([class1_idx, class2_idx])
         
-        # map targets and indices
+        # assign all elements of class 1 the target value 1, and those of class 2 the target value 0
         targets_mapping = {
             indices[i]: 1 if i < len(class1_idx) else 0 
             for i in range(len(indices))
@@ -157,13 +159,9 @@ class CelebA_Attributes(Dataset):
         train_idx = indices[:training_set_size]
         test_idx = indices[training_set_size:]
 
-
         # Assert that there are no overlapping datasets
-        print("Assertion: ")
-        print(set.intersection(set(train_idx), set(test_idx)))
+        print("removed samples with ambiguous labels: ", set.intersection(set(train_idx), set(test_idx)))
         #assert len(set.intersection(set(train_idx), set(test_idx))) == 0
-       
-       
 
         # Set transformations
         self.transform = transform
@@ -195,7 +193,6 @@ class CelebA_Attributes(Dataset):
             return self.transform(im), self.targets[idx]
         else:
             return im, self.targets[idx]
-
 
 
         
