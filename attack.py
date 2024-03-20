@@ -41,8 +41,6 @@ def main():
     # Define and parse attack arguments
     parser = create_parser()
     parser.add_argument('--wandb_target_run', type=str, default=None) # "project/run-id"
-    parser.add_argument('--attr', type=str, default=None)
-    parser.add_argument('--hidden_attr', type=str, default=None)
     config, args = parse_arguments(parser)
     
     # Set seeds
@@ -71,17 +69,14 @@ def main():
     num_ws = G.num_ws
 
     # Load target model and set dataset
-    attributes = args.attr
-    hidden_attributes = args.hidden_attr
     wandb_target_run = args.wandb_target_run
     api = wandb.Api(timeout=60)
     run = api.run(wandb_target_run)
     ratio = run.config['Ratio']
-    #TODO log attributes to config when training target model, so it does not has to be specified here
-    print(ratio)
-    print(attributes)
-    print(hidden_attributes)
-    print(wandb_target_run)
+    attributes = run.config['Attributes']
+    hidden_attributes = run.config['Hidden Attributes']
+    print("information loaded from target model config with wandb run id ",wandb_target_run)
+    print("Ratio:",ratio, ", Attributes:", attributes, ", Hidden Attributes:", hidden_attributes)
     target_model = config.create_target_model(wandb_target_run)
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
@@ -364,6 +359,7 @@ def main():
         evaluation_model_dist.to(device)
         evaluation_model_dist.eval()
 
+        print("Deubg print Attr, hidden Attr",attributes, hidden_attributes)
         # Compute average feature distance on Inception-v3
         evaluate_inception = DistanceEvaluation(evaluation_model_dist,
                                                 synthesis, 299,
