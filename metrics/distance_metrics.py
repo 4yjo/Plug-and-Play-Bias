@@ -14,20 +14,25 @@ from utils.stylegan import create_image
 class DistanceEvaluation():
 
     def __init__(self, model, generator, img_size, center_crop_size, dataset,
-                 seed, attributes=None, hidden_attributes=None):
+                 seed, attributes=None, hidden_attributes=None, ratio=None):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.dataset_name = dataset
         self.model = model
         self.center_crop_size = center_crop_size
         self.img_size = img_size
         self.seed = seed
-        self.attributes=attributes
-        self.hidden_attributes=hidden_attributes
-        self.train_set = self.prepare_dataset(attributes=self.attributes,
-                                              hidden_attributes=self.hidden_attributes) 
+        self.attributes = attributes
+        self.hidden_attributes = hidden_attributes
+        self.ratio = ratio
+        #self.train_set = self.prepare_dataset(attributes=self.attributes,
+        #                                      hidden_attributes=self.hidden_attributes) 
+        self.train_set = self.prepare_dataset()
         self.generator = generator
+        print("CHECK CHECK ", self.attributes, self. hidden_attributes, self.ratio)
         
-    def prepare_dataset(self, attributes=None, hidden_attributes=None):
+    #def prepare_dataset(self, attributes=None, hidden_attributes=None):
+    def prepare_dataset(self):
+        print("GIMME ATTR", self.attributes)
         # Build the datasets
         if self.dataset_name == 'facescrub':
             transform = T.Compose([
@@ -46,12 +51,13 @@ class DistanceEvaluation():
                 T.CenterCrop((self.img_size, self.img_size)),
                 T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
             ])
-            print("ATTR FRO CALL ", attributes)
+            print("ATTR FRO CALL ", self.attributes)
             train_set = CelebA_Attributes(train=True,
                                    transform=transform,
                                    split_seed=self.seed,
-                                   attributes=attributes,
-                                   hidden_attributes = hidden_attributes)
+                                   attributes=self.attributes,
+                                   hidden_attributes = self.hidden_attributes,
+                                   ratio = self.ratio)
         elif self.dataset_name == 'celeba_identities':
             transform = T.Compose([
                 T.Resize(self.img_size, antialias=True),

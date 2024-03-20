@@ -364,7 +364,8 @@ def main():
         evaluate_inception = DistanceEvaluation(evaluation_model_dist,
                                                 synthesis, 299,
                                                 config.attack_center_crop,
-                                                target_dataset, config.seed, attributes, hidden_attributes)
+                                                target_dataset, config.seed, 
+                                                attributes, hidden_attributes, ratio)
         avg_dist_inception, mean_distances_list = evaluate_inception.compute_dist(
             final_w,
             final_targets,
@@ -395,7 +396,8 @@ def main():
             # Compute average feature distance on facenet
             evaluater_facenet = DistanceEvaluation(facenet, synthesis, 160,
                                                    config.attack_center_crop,
-                                                   target_dataset, config.seed)
+                                                   target_dataset, config.seed,
+                                                   attributes, hidden_attributes, ratio)
             avg_dist_facenet, mean_distances_list = evaluater_facenet.compute_dist(
                 final_w,
                 final_targets,
@@ -463,7 +465,10 @@ def main():
                               'InceptionV3',
                               target_dataset,
                               img_size=299,
-                              seed=config.seed)
+                              seed=config.seed,
+                              attributes=attributes,
+                              hidden_attributes=hidden_attributes,
+                              ratio=ratio)
 
         # Use FaceNet only for facial images
         facenet = InceptionResnetV1(pretrained='vggface2')
@@ -479,7 +484,10 @@ def main():
                                   'FaceNet',
                                   target_dataset,
                                   img_size=160,
-                                  seed=config.seed)
+                                  seed=config.seed,
+                                  attributes=attributes,
+                                  hidden_attributes=hidden_attributes,
+                                  ratio=ratio)
 
         # Final logging
         #final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
@@ -615,10 +623,10 @@ def intermediate_wandb_logging(optimizer, targets, confidences, loss,
 
 
 def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
-                          img_size, seed):
+                          img_size, seed, attributes, hidden_attributes, ratio):
     # Find closest training samples to final results
     evaluater = DistanceEvaluation(eval_model, None, img_size, None, dataset,
-                                   seed)
+                                   seed, attributes, hidden_attributes, ratio) 
     closest_samples, distances = evaluater.find_closest_training_sample(
         imgs, targets)
     closest_samples = [
