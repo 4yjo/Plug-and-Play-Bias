@@ -305,11 +305,10 @@ def main():
         training_dataset = create_target_dataset(target_dataset,
                                              target_transform, attributes, hidden_attributes, ratio)
        
-        # TODO use this for more than 2 classes, e.g. CelebA Identities
-        #training_dataset = ClassSubset(
-        #    training_dataset,
-        #    target_classes=torch.unique(final_targets).cpu().tolist())
-
+    
+        training_dataset = ClassSubset(
+            training_dataset,
+            target_classes=torch.unique(final_targets).cpu().tolist())
 
         # compute FID score
         fid_evaluation = FID_Score(training_dataset,
@@ -325,7 +324,7 @@ def main():
         print(
             f'FID score computed on {final_w.shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
         )
-
+    
         # compute precision, recall, density, coverage
         prdc = PRCD(training_dataset,
                     attack_dataset,
@@ -337,7 +336,7 @@ def main():
                     num_workers=8,
                     gpu_devices=gpu_devices)
         precision, recall, density, coverage = prdc.compute_metric(
-            num_classes=config.num_classes, k=3, rtpt=rtpt)
+            num_classes=config.num_classes, k=1, rtpt=rtpt)  #TODO put k=3 if more than 2 classes
         print(
             f' Precision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
         )
@@ -520,7 +519,8 @@ def parse_arguments(parser):
     args = parser.parse_args()
 
     if not args.config:
-        print(
+        
+        (
             "Configuration file is missing. Please check the provided path. Execution is stopped."
         )
         exit()

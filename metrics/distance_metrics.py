@@ -24,15 +24,13 @@ class DistanceEvaluation():
         self.attributes = attributes
         self.hidden_attributes = hidden_attributes
         self.ratio = ratio
-        #self.train_set = self.prepare_dataset(attributes=self.attributes,
-        #                                      hidden_attributes=self.hidden_attributes) 
         self.train_set = self.prepare_dataset()
         self.generator = generator
-        print("CHECK CHECK ", self.attributes, self. hidden_attributes, self.ratio)
         
-    #def prepare_dataset(self, attributes=None, hidden_attributes=None):
+        
+
     def prepare_dataset(self):
-        print("GIMME ATTR", self.attributes)
+        print("Attr in distance metrics", self.attributes)
         # Build the datasets
         if self.dataset_name == 'facescrub':
             transform = T.Compose([
@@ -51,7 +49,6 @@ class DistanceEvaluation():
                 T.CenterCrop((self.img_size, self.img_size)),
                 T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
             ])
-            print("ATTR FRO CALL ", self.attributes)
             train_set = CelebA_Attributes(train=True,
                                    transform=transform,
                                    split_seed=self.seed,

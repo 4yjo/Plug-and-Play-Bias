@@ -37,8 +37,6 @@ class CelebA_Attributes(Dataset):
         hidden_attributes = hidden_attributes 
         self.split_seed = split_seed
 
-        print("RANDOM ATTR CHECK PRINT ", attributes)
-
         # choose if attribute should be negated 
         # (e.g. to get people with beard using negation of no_beard attribute)
         attr_negation = False # default is false
