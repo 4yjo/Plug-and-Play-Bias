@@ -28,7 +28,7 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
-    attribute = config.attribute 
+    attribute = config.attribute  #TODO load attributes from wandb as in attack
     '''
     prompts = [["a photo of a person with no" + attribute,  "a photo of a person with " + attribute], 
             ["an image of a person with no"+attribute,  "an image of a person with "+attribute],  
@@ -73,7 +73,7 @@ def main():
     get_images(run, image_location, G)
 
     #dataset with beard
-    identify_attributes(prompts, clip_processor, clip_model)
+    #identify_attributes(prompts, clip_processor, clip_model)
 
 def load_clip():
     # use transformers to load pretrained clip model and processor
@@ -110,7 +110,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images"
+        outdir = "media/images-100"
         os.makedirs(outdir, exist_ok=True)
 
          # Set devices
