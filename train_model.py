@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Training a target classifier')
     parser.add_argument('--ratio', default=0.5) #add arguments that can be specified in CLI
+    parser.add_argument('--attributes',type=int, nargs='*', default=None) #nargs gathers multiple attr into list
+    parser.add_argument('--hidden_attributes',type=int, nargs='*', default=None)
     parser.add_argument('--run_name', type=str, default=None)
     parser.add_argument('-c',
                         '--config',
@@ -31,16 +33,20 @@ def main():
         )
         exit()
 
-    print("Ratio of hidden attribute in class 1: ", args.ratio)
-
-
-    # Load json config file
-    config = TrainingConfigParser(args.config.strip(), ratio=args.ratio)
 
     # Include optional arguments from Command Line Prompt
     ratio = args.ratio
+    attributes = args.attributes
+    hidden_attributes = args.hidden_attributes
     run_name = args.run_name
+    print("Given ratio of hidden attribute in class 1: ", ratio)
+    print("Given attributes and hidden_attributes: ", attributes, hidden_attributes)
 
+    # Load json config file
+    config = TrainingConfigParser(args.config.strip(), attributes=attributes,
+                                   hidden_attributes=hidden_attributes, ratio=ratio)
+
+   
     # Set seeds and make deterministic
     seed = config.seed
     torch.manual_seed(seed)
@@ -97,6 +103,8 @@ def main():
         metric=metric,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
+        attributes=attributes,
+        hidden_attributes=hidden_attributes,
         ratio=ratio,
         run_name=run_name,
         rtpt=rtpt,
