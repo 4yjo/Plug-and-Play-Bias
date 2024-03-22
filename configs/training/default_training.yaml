@@ -13,10 +13,6 @@ dataset:
   # validation_split_ratio: 0.2 # Alternative to validation_set_size, split is taken from the training set.
   image_size: 224 # Image size of training samples before application of transformations.
 
-# For celeba_attributes, choose index e.g. goatie 16, mustache 22, no_beard 24, sideburns 30
-attributes: [9,8] #attibute the model is trained on 
-hidden_attributes: [20] #attribute for hidden bias in data
-
 transformations: # Transformations applied during training. 
                  # All transformations and parameters provided in torchvision.transforms could be specified.
   RandomResizedCrop:

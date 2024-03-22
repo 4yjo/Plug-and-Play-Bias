@@ -38,7 +38,7 @@ class PRCD:
             with torch.no_grad():
                 embedding_fake = self.compute_embedding(self.dataset_fake, cls)
                 embedding_real = self.compute_embedding(self.dataset_real, cls)
-                pair_dist_real = torch.cdist(embedding_real, embedding_real, p=2)
+                pair_dist_real = torch.cdist(embedding_real, embedding_real, p=2) #using euclidean distance
                 pair_dist_real = torch.sort(pair_dist_real, dim=1, descending=False)[0]
                 pair_dist_fake = torch.cdist(embedding_fake, embedding_fake, p=2)
                 pair_dist_fake = torch.sort(pair_dist_fake, dim=1, descending=False)[0]

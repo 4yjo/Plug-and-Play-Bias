@@ -190,7 +190,9 @@ class Classifier(BaseModel):
             test_data=None,
             optimizer=None,
             lr_scheduler=None,
-            ratio=None, #used for celeb A attribute class
+            attributes=None, #used for celeb A attribute class to log data on wandb 
+            hidden_attributes=None,#used for celeb A attribute class to log data on wandb 
+            ratio=None, #used for celeb A attribute class to log data on wandb 
             run_name=None,  #if run name is specified in command line --run_name
             criterion=nn.CrossEntropyLoss(),
             metric=Accuracy,
@@ -221,8 +223,8 @@ class Classifier(BaseModel):
 
             wandb_config = {
                 'Dataset': config.dataset['type'],
-                'Attributes': config.attributes,
-                'Hidden Attributes': config.hidden_attributes,
+                'Attributes': attributes,
+                'Hidden Attributes': hidden_attributes,
                 'Ratio': float(ratio), 
                 'Epochs': num_epochs,
                 'Batch_size': batch_size,

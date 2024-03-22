@@ -41,8 +41,6 @@ def main():
     # Define and parse attack arguments
     parser = create_parser()
     parser.add_argument('--wandb_target_run', type=str, default=None) # "project/run-id"
-    parser.add_argument('--attr', type=str, default=None)
-    parser.add_argument('--hidden_attr', type=str, default=None)
     config, args = parse_arguments(parser)
     
     # Set seeds
@@ -71,17 +69,14 @@ def main():
     num_ws = G.num_ws
 
     # Load target model and set dataset
-    attributes = args.attr
-    hidden_attributes = args.hidden_attr
     wandb_target_run = args.wandb_target_run
     api = wandb.Api(timeout=60)
     run = api.run(wandb_target_run)
     ratio = run.config['Ratio']
-    #TODO log attributes to config when training target model, so it does not has to be specified here
-    print(ratio)
-    print(attributes)
-    print(hidden_attributes)
-    print(wandb_target_run)
+    attributes = run.config['Attributes']
+    hidden_attributes = run.config['Hidden Attributes']
+    print("information loaded from target model config with wandb run id ",wandb_target_run)
+    print("Ratio:",ratio, ", Attributes:", attributes, ", Hidden Attributes:", hidden_attributes)
     target_model = config.create_target_model(wandb_target_run)
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
@@ -310,11 +305,10 @@ def main():
         training_dataset = create_target_dataset(target_dataset,
                                              target_transform, attributes, hidden_attributes, ratio)
        
-        # TODO use this for more than 2 classes, e.g. CelebA Identities
-        #training_dataset = ClassSubset(
-        #    training_dataset,
-        #    target_classes=torch.unique(final_targets).cpu().tolist())
-
+    
+        training_dataset = ClassSubset(
+            training_dataset,
+            target_classes=torch.unique(final_targets).cpu().tolist())
 
         # compute FID score
         fid_evaluation = FID_Score(training_dataset,
@@ -330,7 +324,7 @@ def main():
         print(
             f'FID score computed on {final_w.shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
         )
-
+    
         # compute precision, recall, density, coverage
         prdc = PRCD(training_dataset,
                     attack_dataset,
@@ -342,7 +336,7 @@ def main():
                     num_workers=8,
                     gpu_devices=gpu_devices)
         precision, recall, density, coverage = prdc.compute_metric(
-            num_classes=config.num_classes, k=3, rtpt=rtpt)
+            num_classes=config.num_classes, k=1, rtpt=rtpt)  #TODO put k=3 if more than 2 classes
         print(
             f' Precision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
         )
@@ -364,11 +358,13 @@ def main():
         evaluation_model_dist.to(device)
         evaluation_model_dist.eval()
 
+        print("Deubg print Attr, hidden Attr",attributes, hidden_attributes)
         # Compute average feature distance on Inception-v3
         evaluate_inception = DistanceEvaluation(evaluation_model_dist,
                                                 synthesis, 299,
                                                 config.attack_center_crop,
-                                                target_dataset, config.seed, attributes, hidden_attributes)
+                                                target_dataset, config.seed, 
+                                                attributes, hidden_attributes, ratio)
         avg_dist_inception, mean_distances_list = evaluate_inception.compute_dist(
             final_w,
             final_targets,
@@ -399,7 +395,8 @@ def main():
             # Compute average feature distance on facenet
             evaluater_facenet = DistanceEvaluation(facenet, synthesis, 160,
                                                    config.attack_center_crop,
-                                                   target_dataset, config.seed)
+                                                   target_dataset, config.seed,
+                                                   attributes, hidden_attributes, ratio)
             avg_dist_facenet, mean_distances_list = evaluater_facenet.compute_dist(
                 final_w,
                 final_targets,
@@ -467,7 +464,10 @@ def main():
                               'InceptionV3',
                               target_dataset,
                               img_size=299,
-                              seed=config.seed)
+                              seed=config.seed,
+                              attributes=attributes,
+                              hidden_attributes=hidden_attributes,
+                              ratio=ratio)
 
         # Use FaceNet only for facial images
         facenet = InceptionResnetV1(pretrained='vggface2')
@@ -483,7 +483,10 @@ def main():
                                   'FaceNet',
                                   target_dataset,
                                   img_size=160,
-                                  seed=config.seed)
+                                  seed=config.seed,
+                                  attributes=attributes,
+                                  hidden_attributes=hidden_attributes,
+                                  ratio=ratio)
 
         # Final logging
         #final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
@@ -516,7 +519,8 @@ def parse_arguments(parser):
     args = parser.parse_args()
 
     if not args.config:
-        print(
+        
+        (
             "Configuration file is missing. Please check the provided path. Execution is stopped."
         )
         exit()
@@ -619,10 +623,10 @@ def intermediate_wandb_logging(optimizer, targets, confidences, loss,
 
 
 def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
-                          img_size, seed):
+                          img_size, seed, attributes, hidden_attributes, ratio):
     # Find closest training samples to final results
     evaluater = DistanceEvaluation(eval_model, None, img_size, None, dataset,
-                                   seed)
+                                   seed, attributes, hidden_attributes, ratio) 
     closest_samples, distances = evaluater.find_closest_training_sample(
         imgs, targets)
     closest_samples = [

@@ -33,8 +33,8 @@ class CelebA_Attributes(Dataset):
         
 
         # get attribute via index provided in config file (e.g. default_training.yaml)
-        attributes = attributes  
-        hidden_attributes = hidden_attributes 
+        #attributes = attributes  
+        #hidden_attributes = hidden_attributes 
         self.split_seed = split_seed
 
         # choose if attribute should be negated 
