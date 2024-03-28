@@ -41,6 +41,7 @@ def main():
     # Define and parse attack arguments
     parser = create_parser()
     parser.add_argument('--wandb_target_run', type=str, default=None) # "project/run-id"
+    parser.add_argument('--run_name', type=str, default=None)
     config, args = parse_arguments(parser)
     
     # Set seeds

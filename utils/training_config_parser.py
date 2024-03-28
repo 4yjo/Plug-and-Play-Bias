@@ -59,10 +59,10 @@ class TrainingConfigParser:
                                   transform=data_transformation_test)
         elif name == 'celeba_attributes':
             print('create trainset')
-            train_set = CelebA_Attributes(train=True, attributes=self.attributes, hidden_attributes=self.hidden_attributes, ratio = self.ratio)
+            train_set = CelebA_Attributes(train=True, attributes=self.attributes, hidden_attributes=self.hidden_attributes, ratio=self.ratio)
             print('create testset')
             test_set = CelebA_Attributes(train=False,
-                                    transform=data_transformation_test,attributes=self.attributes, hidden_attributes=self.hidden_attributes, ratio = self.ratio)
+                                    transform=data_transformation_test,attributes=self.attributes, hidden_attributes=self.hidden_attributes, ratio=self.ratio)
         elif name == 'stanford_dogs_uncropped':
             train_set = StanfordDogs(train=True, cropped=False)
             test_set = StanfordDogs(train=False,

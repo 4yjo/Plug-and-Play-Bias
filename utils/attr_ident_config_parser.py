@@ -29,10 +29,12 @@ class AttrIdentConfigParser:
     @property
     def attribute(self):
         return self._config['attribute']
-
+    
+    
     @property
-    def benchmark(self):
-        return self._config['benchmark']
+    def prompts(self):
+        return self._config['prompts']
+
 
     @property
     def stylegan_model(self):

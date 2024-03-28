@@ -60,7 +60,6 @@ def main():
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
 
-    #TODO add information about discarded data for wandb here
 
     '''
     # Save images locally to inspect train set 

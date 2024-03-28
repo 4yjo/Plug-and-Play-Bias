@@ -4,25 +4,26 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
 
-image_location: 'wandb-weights' # 'local' if images already downloaded to media/images, 
+image_location: 'local' # 'local' if images already downloaded to media/images, 
                                 # 'wandb-media' to download from run, 
                                 # 'wandb-weights' to generate from weight vector if media is not stored on wandb
 
 
-
 attribute: 'facial hair' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
-
+prompts: [["an image of a man",  "an image of a woman"]]
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification
   name_initials: AM
 
 wandb_project: CLIP_prompts
-wandb_name: test_CLIP
+wandb_name: test_haircolor_gender
 
-#wandb: # Options for WandB logging.
-#  enable_logging: true # Activate logging.
-#  wandb_init_args: # WandB init arguments.
-#    project: attribute_identification
-#    save_code: true
-#    name: test
+prompt: None
+
+wandb: # Options for WandB logging.
+  enable_logging: true # Activate logging.
+  wandb_init_args: # WandB init arguments.
+    project: CLIP_eval_haircolor_gender
+    save_code: true
+    name: 
