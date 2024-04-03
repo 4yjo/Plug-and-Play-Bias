@@ -62,7 +62,7 @@ def main():
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
-
+    '''
     # wandblog 
     wandb.init( 
         project=config.wandb_project,
@@ -70,7 +70,7 @@ def main():
         config={
            "dataset": "Gender-Testdata-Female & Gender-Testdata-Male",
            "prompts": prompts})
-    
+    '''
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -86,9 +86,9 @@ def main():
 
     get_images(run, image_location, G)
 
-    prompt_accuracy(prompts[0], processor, model) # TODO for all prompts
+    #prompt_accuracy(prompts[0], processor, model) # TODO for all prompts
    
-    #identify_attributes(prompts, processor, model)
+    identify_attributes(prompts, processor, model)
    
 def get_images(run, image_location, G=None):
     #create a local folder with test images to evaluate your prompts and put its path here:
@@ -104,17 +104,85 @@ def prompt_accuracy(prompt, clip_processor, clip_model):
     # prompts should be provided as array of 2 strings, where the first prompt describes hidden attribute and second its negation
     # eg ['a photo of a man', 'a photo of a woman']
 
+    ####################################
+    ## dataset with hidden attribute ###
+    ####################################
+
+    highest_prop_0 = 0.0
+    lowest_prop_0 = 1.0
+    decision_0 = 0.0
+    counter_0 = 0.0
+
     for i in os.listdir("Gender-Testdata-Male"):
         image = Image.open("Gender-Testdata-Male/" + str(i)) 
         inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
         outputs = clip_model(**inputs)
         logits_per_image = outputs.logits_per_image # CLIP similarity score
-        probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+        prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+        prob_0 = prob[0,0].item()
+        prob_1 = prob[0,1].item()
+        decision_0 += 1 if prob.argmax().item() == 0 else 0 #if CLIP decides for prompt with idx 0 add 1
+        counter_0 += 1
 
-    print('probs', props)
-    print(props.type)
+        #update highest and lowest probabilities for hidden attribute
 
-    #TODO add wandb log
+        if float(prob_0) > highest_prop_0:
+            highest_prop_0 = float(prob_0)
+
+        if float(prob_0) < lowest_prop_0:
+            lowest_prop_0 = float(prob_0)
+    
+    acc_0 = decision_0/counter_0
+
+    print('accuracy 0: ', acc_0)
+    print("highest prob 0: ", highest_prop_0)
+    print("lowest prob 0: ", lowest_prop_0)
+
+    ####################################
+    ## dataset without hidden attribute ###
+    ####################################
+
+    highest_prop_1 = 0.0
+    lowest_prop_1 = 1.0
+    decision_1 = 0.0
+    counter_1 = 0.0
+
+    for i in os.listdir("Gender-Testdata-Female"):
+        image = Image.open("Gender-Testdata-Female/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+        outputs = clip_model(**inputs)
+        logits_per_image = outputs.logits_per_image # CLIP similarity score
+        prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+        prob_0 = prob[0,0].item()
+        prob_1 = prob[0,1].item()
+        decision_1 += 1 if prob.argmax().item() == 1 else 0 #if CLIP decides for prompt with idx 0 add 1
+        counter_1 += 1
+
+        # update highest and lowest probabilities for hidden attribute
+        if float(prob_1) > highest_prop_1:
+            highest_prop_1 = float(prob_1)
+
+        if float(prob_1) < lowest_prop_1:
+            lowest_prop_1 = float(prob_1)
+    
+    acc_1 = decision_1/counter_1
+
+    print('accuracy 1: ', acc_1)
+    print("highest prob 1: ", highest_prop_1)
+    print("lowest prob 1: ", lowest_prop_1)
+
+    overall_acc = (acc_0+acc_1)/2
+
+ 
+    wandb.log({
+        "male acc": acc_0,
+        "female acc": acc_1,
+        "overall acc": overall_acc,
+        "highest prop male": highest_prop_0,
+        "lowest prop male": lowest_prop_0,
+        "highest prop female": highest_prop_1,
+        "lowest prop female": lowest_prop_1
+        })
 
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images 
@@ -127,8 +195,6 @@ def identify_attributes(prompts, clip_processor, clip_model):
     for i in os.listdir("Gender-Testdata-Male"):
         all_probs = torch.tensor([])
         decision = 0.0
-        highest_prop_0 = 0.0
-        lowest_prop_0 = 1.0
         #best_probs = []
         #best_prompts = []
         image = Image.open("Gender-Testdata-Male/" + str(i)) 
@@ -218,7 +284,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
     
     overall_acc = np.mean([acc_0, acc_1])
     print("Overall accuracy: ", overall_acc)
-
+'''
     wandb.log({
         "male acc": acc_0,
         "female acc": acc_1,
@@ -230,7 +296,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         })
 
     wandb.finish
-
+'''
 def create_parser():
     parser = argparse.ArgumentParser(
         description='automated evaluation using CLIP')
