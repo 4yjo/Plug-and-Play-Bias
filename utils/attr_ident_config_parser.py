@@ -55,8 +55,8 @@ class AttrIdentConfigParser:
     
     @property
     def wandb_project(self):
-        return self._config['wandb_project']
+        return self._config['wandb']['wandb_init_args']['project']
     
     @property
     def wandb_name(self):
-        return self._config['wandb_name']
+        return self._config['wandb']['wandb_init_args']['name']

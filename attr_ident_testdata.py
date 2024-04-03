@@ -63,9 +63,7 @@ def main():
     rtpt = config.create_rtpt()
     rtpt.start()
 
-    # wandblog
-     # start a new wandb run to track this script
-    
+    # wandblog 
     wandb.init( 
         project=config.wandb_project,
         name = config.wandb_name,
@@ -88,7 +86,9 @@ def main():
 
     get_images(run, image_location, G)
 
-    identify_attributes(prompts, processor, model)
+    prompt_accuracy(prompts[0], processor, model) # TODO for all prompts
+   
+    #identify_attributes(prompts, processor, model)
    
 def get_images(run, image_location, G=None):
     #create a local folder with test images to evaluate your prompts and put its path here:
@@ -99,6 +99,22 @@ def get_images(run, image_location, G=None):
     else: 
         raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
 
+def prompt_accuracy(prompt, clip_processor, clip_model):
+    # evaluates CLIP Accuracy for given prompt on Testdata
+    # prompts should be provided as array of 2 strings, where the first prompt describes hidden attribute and second its negation
+    # eg ['a photo of a man', 'a photo of a woman']
+
+    for i in os.listdir("Gender-Testdata-Male"):
+        image = Image.open("Gender-Testdata-Male/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+        outputs = clip_model(**inputs)
+        logits_per_image = outputs.logits_per_image # CLIP similarity score
+        probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+
+    print('probs', props)
+    print(props.type)
+
+    #TODO add wandb log
 
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images 
@@ -111,6 +127,8 @@ def identify_attributes(prompts, clip_processor, clip_model):
     for i in os.listdir("Gender-Testdata-Male"):
         all_probs = torch.tensor([])
         decision = 0.0
+        highest_prop_0 = 0.0
+        lowest_prop_0 = 1.0
         #best_probs = []
         #best_prompts = []
         image = Image.open("Gender-Testdata-Male/" + str(i)) 
@@ -119,7 +137,6 @@ def identify_attributes(prompts, clip_processor, clip_model):
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
-            print(probs)
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
             #best_probs.append(probs.max().item()) #append
             #best_prompts.append(probs.argmax()) #append index of best rated
@@ -132,15 +149,26 @@ def identify_attributes(prompts, clip_processor, clip_model):
         # majority vote over all prompts: decides 1 for attr, 0 for no attr  
         #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
         #decisions.append(decision.item()) 
-        highest_prop_0 = torch.argmax(all_probs, dim=1) 
-        print(highest_prop_0, i)
-        lowest_prop_0 =torch.argmin(all_probs, dim=1)
-        print(lowest_prop_0, i)
-        decision = torch.round(torch.sum(highest_prop_0)/len(prompts))
-        decisions.append(decision.item()) 
+        prop_0 = torch.amax(all_probs, dim=1).item() #gets current prob for prompt with index 0
+        #decision = torch.round(torch.sum(highest_prop_0)/len(prompts))
+        #decisions.append(decision.item()) 
 
+    #update highest and lowest probabilities
+    if float(prop_0) > highest_prop_0:
+        highest_prop_0 = float(prop_0)
 
-    acc_0 = np.sum(decisions)/len(decisions)
+    if float(prop_0) < lowest_prop_0:
+        lowest_prop_0 = float(low_prop_0)
+
+    print("highest prob: ", highest_prop_0)
+    print("lowest_prob: ", lowest_prop_0)
+
+    print('sum dec', np.sum(decisions))
+    print(' len dec', len(decisions))
+
+    #acc_0 counts percentage of decision = 0, where 0 -> index in prompt e.g. 'a photo of a man'
+    acc_0 = (len(decisions)-np.sum(decisions))/len(decisions) 
+
     print("Percentage identified as male-appearing from male testset: ", acc_0)  
     
     ######################################
@@ -151,6 +179,8 @@ def identify_attributes(prompts, clip_processor, clip_model):
     for i in os.listdir("Gender-Testdata-Female"):
         all_probs = torch.tensor([])
         decision = 0.0
+        highest_prop_1 = 0.0
+        lowest_prop_1 = 0.0
         best_probs = []
         best_prompts = []
        
@@ -160,21 +190,27 @@ def identify_attributes(prompts, clip_processor, clip_model):
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
-            print(probs)
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
             #best_probs.append(probs.max().item()) #append
             #best_prompts.append(probs.argmax()) #append index of best rated
 
         # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        #decisions.append(decision.item()) 
-        highest_prop_1 = torch.argmax(all_probs, dim=1) 
-        print(highest_prop_1, i)
-        lowest_prop_1 =torch.argmin(all_probs, dim=1)
-        print(lowest_prop_1, i)
-        decision = torch.round(torch.sum(highest_prop_1)/len(prompts))
+        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
         decisions.append(decision.item()) 
+        high_prop_1 = torch.amax(all_probs, dim=1).item()
+        low_prop_1 =torch.amin(all_probs, dim=1).item()
+        #decision = torch.round(torch.sum(highest_prop_1)/len(prompts))
+        #decisions.append(decision.item()) 
 
+    #update highest and lowest probabilities
+    if float(high_prop_1) > highest_prop_1:
+        highest_prop_1 = float(high_prop_1)
+
+    if float(low_prop_1) > lowest_prop_1:
+        lowest_prop_1 = float(low_prop_1)
+
+    print("highest prob: ", highest_prop_1)
+    print("lowest_prob: ", lowest_prop_1)
 
     acc_1 = np.sum(decisions)/len(decisions)
     print("Percentage identified as female-appearing from female testset: ", acc_1)  

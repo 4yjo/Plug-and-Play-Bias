@@ -10,16 +10,13 @@ image_location: 'local' # 'local' if images already downloaded to media/images,
 
 
 attribute: 'facial hair' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
-prompts: [["an image of a man",  "an image of a woman"]]
+prompts: [["an image of a man",  "an image of a woman"],
+          ["a photo of a man",  "a photo of a woman"]]
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification
   name_initials: AM
 
-wandb_project: CLIP_prompts
-wandb_name: test_haircolor_gender
-
-prompt: None
 
 wandb: # Options for WandB logging.
   enable_logging: true # Activate logging.
