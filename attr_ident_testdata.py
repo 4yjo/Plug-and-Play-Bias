@@ -28,10 +28,9 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
-    # if attribute is specified in config file, prompts can be generated automatically 
-    attribute = config.attribute 
 
     '''
+    Examples for prompts
     prompts = ["a photo of a person with " + attribute, 
             "an image of a person with "+attribute, 
             "a cropped photo of a person with "+attribute,
@@ -62,7 +61,7 @@ def main():
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
-    '''
+    
     # wandblog 
     wandb.init( 
         project=config.wandb_project,
@@ -70,7 +69,7 @@ def main():
         config={
            "dataset": "Gender-Testdata-Female & Gender-Testdata-Male",
            "prompts": prompts})
-    '''
+    
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -171,7 +170,7 @@ def prompt_accuracy(prompt, clip_processor, clip_model):
     print("highest prob 1: ", highest_prop_1)
     print("lowest prob 1: ", lowest_prop_1)
 
-    overall_acc = (acc_0+acc_1)/2
+    overall_acc = np.mean([acc_0, acc_1])
 
  
     wandb.log({
@@ -195,8 +194,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
     for i in os.listdir("Gender-Testdata-Male"):
         all_probs = torch.tensor([])
         decision = 0.0
-        #best_probs = []
-        #best_prompts = []
+
         image = Image.open("Gender-Testdata-Male/" + str(i)) 
         for prompt in prompts:
             inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
@@ -204,35 +202,11 @@ def identify_attributes(prompts, clip_processor, clip_model):
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
-            #best_probs.append(probs.max().item()) #append
-            #best_prompts.append(probs.argmax()) #append index of best rated
-
+        
         # majority vote over all prompts: decides 0 for first prompt in array, 1 for 2nd prompt in array 
-        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        decisions.append(decision.item()) 
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        decision = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+        decisions.append(decision) 
        
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        #decisions.append(decision.item()) 
-        prop_0 = torch.amax(all_probs, dim=1).item() #gets current prob for prompt with index 0
-        #decision = torch.round(torch.sum(highest_prop_0)/len(prompts))
-        #decisions.append(decision.item()) 
-
-    #update highest and lowest probabilities
-    if float(prop_0) > highest_prop_0:
-        highest_prop_0 = float(prop_0)
-
-    if float(prop_0) < lowest_prop_0:
-        lowest_prop_0 = float(low_prop_0)
-
-    print("highest prob: ", highest_prop_0)
-    print("lowest_prob: ", lowest_prop_0)
-
-    print('sum dec', np.sum(decisions))
-    print(' len dec', len(decisions))
-
-    #acc_0 counts percentage of decision = 0, where 0 -> index in prompt e.g. 'a photo of a man'
     acc_0 = (len(decisions)-np.sum(decisions))/len(decisions) 
 
     print("Percentage identified as male-appearing from male testset: ", acc_0)  
@@ -245,38 +219,17 @@ def identify_attributes(prompts, clip_processor, clip_model):
     for i in os.listdir("Gender-Testdata-Female"):
         all_probs = torch.tensor([])
         decision = 0.0
-        highest_prop_1 = 0.0
-        lowest_prop_1 = 0.0
-        best_probs = []
-        best_prompts = []
-       
-        image = Image.open("Gender-Testdata-Female/"+str(i))
+        image = Image.open("Gender-Testdata-Female/" + str(i)) 
         for prompt in prompts:
             inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
-            #best_probs.append(probs.max().item()) #append
-            #best_prompts.append(probs.argmax()) #append index of best rated
-
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        decisions.append(decision.item()) 
-        high_prop_1 = torch.amax(all_probs, dim=1).item()
-        low_prop_1 =torch.amin(all_probs, dim=1).item()
-        #decision = torch.round(torch.sum(highest_prop_1)/len(prompts))
-        #decisions.append(decision.item()) 
-
-    #update highest and lowest probabilities
-    if float(high_prop_1) > highest_prop_1:
-        highest_prop_1 = float(high_prop_1)
-
-    if float(low_prop_1) > lowest_prop_1:
-        lowest_prop_1 = float(low_prop_1)
-
-    print("highest prob: ", highest_prop_1)
-    print("lowest_prob: ", lowest_prop_1)
+        
+        # majority vote over all prompts: decides 0 for first prompt in array, 1 for 2nd prompt in array 
+        decision = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+        decisions.append(decision) 
 
     acc_1 = np.sum(decisions)/len(decisions)
     print("Percentage identified as female-appearing from female testset: ", acc_1)  
@@ -284,19 +237,15 @@ def identify_attributes(prompts, clip_processor, clip_model):
     
     overall_acc = np.mean([acc_0, acc_1])
     print("Overall accuracy: ", overall_acc)
-'''
+
     wandb.log({
         "male acc": acc_0,
         "female acc": acc_1,
         "overall acc": overall_acc,
-        "highest prop male": highest_prop_0,
-        "lowest prop male": lowest_prop_0,
-        "highest prop female": highest_prop_1,
-        "lowest prop female": lowest_prop_1
         })
 
     wandb.finish
-'''
+
 def create_parser():
     parser = argparse.ArgumentParser(
         description='automated evaluation using CLIP')
