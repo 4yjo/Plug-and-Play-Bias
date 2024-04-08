@@ -28,8 +28,9 @@ def main():
     api = wandb.Api(timeout=60)
     run = api.run(config.wandb_attack_run)
 
-    attribute = config.attribute 
+
     '''
+    Examples for prompts
     prompts = ["a photo of a person with " + attribute, 
             "an image of a person with "+attribute, 
             "a cropped photo of a person with "+attribute,
@@ -45,27 +46,29 @@ def main():
             ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
             ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute],
             ["a portrait of a person with no "+attribute, "a portrait of a person with "+attribute]]
-    '''
+    
     
     prompts = [["an image of a person with no "+attribute,  "an image of a person with "+attribute],  
             ["a cropped photo of a person with no "+attribute, "a cropped photo of a person with "+attribute],
             ["an image of a head of a person with no "+attribute, "an image of a head of a person with "+attribute]]
+
+    '''
+   
+    prompts = config.prompts
+    print(prompts)
+          
+
     # Create and start RTPT object
     rtpt = config.create_rtpt()
     rtpt.start()
-
-    # wandblog
-     # start a new wandb run to track this script
     
-    #wandb.init(
-    #    project=config.wandb_project,
-    #    name = config.wandb_name,
-    #    config={
-    #        "dataset": "test-data-beard",
-    #        "prompts": prompt,
-    #        "benchmark": config.benchmark,
-    #        }
-    #    )
+    # wandblog 
+    wandb.init( 
+        project=config.wandb_project,
+        name = config.wandb_name,
+        config={
+           "dataset": "Gender-Testdata-Female & Gender-Testdata-Male",
+           "prompts": prompts})
     
     # Load CLIP 
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -80,168 +83,168 @@ def main():
     else:
         G = None
 
-    #get_images(run, image_location, G)
+    get_images(run, image_location, G)
 
-    #dataset with beard
+    #prompt_accuracy(prompts[0], processor, model) # TODO for all prompts
+   
     identify_attributes(prompts, processor, model)
    
 def get_images(run, image_location, G=None):
-    #gets images from wandb attack run and stores them in media/images
-    if (image_location == 'local'):
-        print('using locally stored images for CLIP evaluation')
-        #if os.path.exists("media/images"):
-         #   c = len([f for f in os.listdir("media/images")]) #TODO uncomment
-        if os.path.exists("with_beard"):
-            c = len([f for f in os.listdir("with_beard")])
-            #print("found ", str(c), " images locally in media/images")
-        else: 
-            raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
-        
+    #create a local folder with test images to evaluate your prompts and put its path here:
     
-    elif (image_location == 'wandb-media'):
-        print('using images on wandb run for CLIP evaluation')
-        # if image is stored on wandb: download it to local file
-        c = 0
-        for file in run.files():
-            if file.name.startswith("media/images/final_"):  
-                file.download(exist_ok=True) #wandb only downloads if file does not already exist
-                c +=1
-            else:
-                raise FileNotFoundError(f"The images are not found on wandb. Use wandb-weights instead")
-        print("downloaded ", str(c), " images from wandb")
+    if os.path.exists("Gender-Testdata-Female"):
+        c = len([f for f in os.listdir("Gender-Testdata-Female")])
+        print("found ", str(c), " images")
+    else: 
+        raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
 
-    elif (image_location == 'wandb-weights'):
-        print('using wandb weight vector to generate images for CLIP evaluation')
-       
-        # make local directory to store generated images
-        outdir = "media/images"
-        os.makedirs(outdir, exist_ok=True)
+def prompt_accuracy(prompt, clip_processor, clip_model):
+    # evaluates CLIP Accuracy for given prompt on Testdata
+    # prompts should be provided as array of 2 strings, where the first prompt describes hidden attribute and second its negation
+    # eg ['a photo of a man', 'a photo of a woman']
 
-         # Set devices
-        torch.set_num_threads(24)
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        gpu_devices = [i for i in range(torch.cuda.device_count())]
+    ####################################
+    ## dataset with hidden attribute ###
+    ####################################
 
-        # initialize stylegan syntezesis network 
-        synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
-        synthesis.num_ws = G.num_ws
+    highest_prop_0 = 0.0
+    lowest_prop_0 = 1.0
+    decision_0 = 0.0
+    counter_0 = 0.0
 
-        synthesis.eval()
-        
-        # get weights from wandb
-        for file in run.files():
-            if file.name.startswith("results/optimized_w_selected"):    
-                w_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
-                print('weights downloaded')
-                
-                w = torch.load(w_file.name).cuda() #loads tensor from file 
-                print(w.shape)
+    for i in os.listdir("Gender-Testdata-Male"):
+        image = Image.open("Gender-Testdata-Male/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+        outputs = clip_model(**inputs)
+        logits_per_image = outputs.logits_per_image # CLIP similarity score
+        prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+        prob_0 = prob[0,0].item()
+        prob_1 = prob[0,1].item()
+        decision_0 += 1 if prob.argmax().item() == 0 else 0 #if CLIP decides for prompt with idx 0 add 1
+        counter_0 += 1
 
-                # copy data to match dimensions
-                if w.shape[1] == 1:
-                    w_expanded = torch.repeat_interleave(w,
-                                                    repeats=synthesis.num_ws,
-                                                    dim=1)
-                else: 
-                    w_expanded = w
+        #update highest and lowest probabilities for hidden attribute
+
+        if float(prob_0) > highest_prop_0:
+            highest_prop_0 = float(prob_0)
+
+        if float(prob_0) < lowest_prop_0:
+            lowest_prop_0 = float(prob_0)
     
-        x = synthesis(w_expanded, noise_mode='const', force_fp32=True)
+    acc_0 = decision_0/counter_0
 
-        print(x.shape)
-        # crop and resize
-        x = F.resize(x, 224, antialias=True)
-        #x = F.center_crop(x, (800, 800)) #crop images
-        x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print('accuracy 0: ', acc_0)
+    print("highest prob 0: ", highest_prop_0)
+    print("lowest prob 0: ", lowest_prop_0)
 
-        #save images
-        for i in range(x.shape[0]):
-            torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
+    ####################################
+    ## dataset without hidden attribute ###
+    ####################################
 
+    highest_prop_1 = 0.0
+    lowest_prop_1 = 1.0
+    decision_1 = 0.0
+    counter_1 = 0.0
+
+    for i in os.listdir("Gender-Testdata-Female"):
+        image = Image.open("Gender-Testdata-Female/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+        outputs = clip_model(**inputs)
+        logits_per_image = outputs.logits_per_image # CLIP similarity score
+        prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+        prob_0 = prob[0,0].item()
+        prob_1 = prob[0,1].item()
+        decision_1 += 1 if prob.argmax().item() == 1 else 0 #if CLIP decides for prompt with idx 0 add 1
+        counter_1 += 1
+
+        # update highest and lowest probabilities for hidden attribute
+        if float(prob_1) > highest_prop_1:
+            highest_prop_1 = float(prob_1)
+
+        if float(prob_1) < lowest_prop_1:
+            lowest_prop_1 = float(prob_1)
+    
+    acc_1 = decision_1/counter_1
+
+    print('accuracy 1: ', acc_1)
+    print("highest prob 1: ", highest_prop_1)
+    print("lowest prob 1: ", lowest_prop_1)
+
+    overall_acc = np.mean([acc_0, acc_1])
+
+ 
+    wandb.log({
+        "male acc": acc_0,
+        "female acc": acc_1,
+        "overall acc": overall_acc,
+        "highest prop male": highest_prop_0,
+        "lowest prop male": lowest_prop_0,
+        "highest prop female": highest_prop_1,
+        "lowest prop female": lowest_prop_1
+        })
 
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images 
     
-    #########################
-    ## dataset with attr ###
-    #########################
-    #for i in os.listdir("media/images"):
-        #image = Image.open("media/images/" + str(i)) #TODO
+    ####################################
+    ## dataset with hidden attribute ###
+    ####################################
     
     decisions = []
-    for i in os.listdir("with_beard"):
+    for i in os.listdir("Gender-Testdata-Male"):
         all_probs = torch.tensor([])
         decision = 0.0
-        #best_probs = []
-        #best_prompts = []
-        image = Image.open("with_beard/" + str(i)) 
+
+        image = Image.open("Gender-Testdata-Male/" + str(i)) 
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
             all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
-            #best_probs.append(probs.max().item()) #append
-            #best_prompts.append(probs.argmax()) #append index of best rated
-
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        #decisions.append(decision.item()) 
-        highest_prop = torch.argmax(all_probs, dim=1) 
-        #print(highest_prop, i)
-        decision = torch.round(torch.sum(highest_prop)/len(prompts))
-        decisions.append(decision.item()) 
-
-
-    acc_beard = np.sum(decisions)/len(decisions)
-    print("Percentage with beard: ", acc_beard)  
-    
-
-    #########################
-    ## dataset no attr ###
-    #########################
-    decisions = []
-    for i in os.listdir("no_beard"):
-        all_probs = torch.tensor([])
-        decision = 0.0
-        #best_probs = []
-        #best_prompts = []
-        image = Image.open("no_beard/" + str(i)) 
-        for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
-            outputs = clip_model(**inputs)
-            logits_per_image = outputs.logits_per_image # CLIP similarity score
-            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
-            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
-            #best_probs.append(probs.max().item()) #append
-            #best_prompts.append(probs.argmax()) #append index of best rated
-
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        decisions.append(decision.item()) 
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
+        
+        # majority vote over all prompts: decides 0 for first prompt in array, 1 for 2nd prompt in array 
+        decision = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+        decisions.append(decision) 
        
-        # majority vote over all prompts: decides 1 for attr, 0 for no attr  
-        #decision = torch.sum(torch.argmax(all_probs, dim=1))/len(prompts)
-        #decisions.append(decision.item()) 
-        highest_prop = torch.argmax(all_probs, dim=1) 
-        #print(highest_prop, i)
-        decision = torch.round(torch.sum(highest_prop)/len(prompts))
-        decisions.append(decision.item()) 
+    acc_0 = (len(decisions)-np.sum(decisions))/len(decisions) 
 
-
-    acc_no_beard = np.sum(decisions)/len(decisions)
-    print("Percentage with no beard: ", acc_no_beard)  
+    print("Percentage identified as male-appearing from male testset: ", acc_0)  
     
-    overall_acc = (acc_beard + (1.0-acc_no_beard))/2
+    ######################################
+    ## dataset negated hidden attribute###
+    ######################################
+
+    decisions = []
+    for i in os.listdir("Gender-Testdata-Female"):
+        all_probs = torch.tensor([])
+        decision = 0.0
+        image = Image.open("Gender-Testdata-Female/" + str(i)) 
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image # CLIP similarity score
+            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
+        
+        # majority vote over all prompts: decides 0 for first prompt in array, 1 for 2nd prompt in array 
+        decision = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+        decisions.append(decision) 
+
+    acc_1 = np.sum(decisions)/len(decisions)
+    print("Percentage identified as female-appearing from female testset: ", acc_1)  
+
+    
+    overall_acc = np.mean([acc_0, acc_1])
     print("Overall accuracy: ", overall_acc)
 
-    #wandb.log({
-    #    "no_beard/mean_prob": np.mean(cp_1),
-    #    "no_beard/mean_similarity_score": np.mean(sc_1),
-    #    "no_beard/acc": acc_1
-    #})
+    wandb.log({
+        "male acc": acc_0,
+        "female acc": acc_1,
+        "overall acc": overall_acc,
+        })
 
-    #wandb.finish
+    wandb.finish
 
 def create_parser():
     parser = argparse.ArgumentParser(

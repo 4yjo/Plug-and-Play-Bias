@@ -5,7 +5,7 @@ seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_identities, celeba_attr, stanford_dogs_cropped, stanford_dogs_uncropped].
 
 candidates:
-  num_candidates: 200  # Number of latent vectors to optimize for each target.
+  num_candidates: 400  # Number of latent vectors to optimize for each target.
   candidate_search:
     search_space_size: 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
@@ -46,7 +46,7 @@ attack:
       gamma: 0.1
 
 final_selection:
-  samples_per_target: 50 # Number of samples to select from the set of optimized latent vectors.
+  samples_per_target: 100 # Number of samples to select from the set of optimized latent vectors.
   approach: transforms # Currently only transforms is available as an option.
   iterations: 100   # Number of iterations random transformations are applied.
 
@@ -56,4 +56,4 @@ wandb: # Options for WandB logging.
   wandb_init_args: # WandB init arguments
     project: Attacks_Haircolor_Gender
     save_code: true
-    name: Male_0.5
+    name: Male 1.0 (fix nr candidates)

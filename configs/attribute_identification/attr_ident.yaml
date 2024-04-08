@@ -1,5 +1,6 @@
 ---
-wandb_attack_run: model_inversion_attacks/96pxvk5g # WandB run id for attack that should be evaluated
+#wandb_attack_run: Attacks_Haircolor_Gender/pi24oy4c # WandB run id for attack that should be evaluated
+wandb_attack_run: Attacks_Haircolor_Gender/yxjtduu1
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
@@ -9,20 +10,19 @@ image_location: 'wandb-weights' # 'local' if images already downloaded to media/
                                 # 'wandb-weights' to generate from weight vector if media is not stored on wandb
 
 
-
-attribute: 'facial hair' # e.g. 'beard', 'glasses', etc. used to build prompt for evaluation with CLIP
-
+prompts: [["a man",  "a woman"],
+          ["a boy",  "a girl"],
+          ["a male face",  "a female face"]]
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification
   name_initials: AM
 
-wandb_project: CLIP_prompts
-wandb_name: test_CLIP
 
-#wandb: # Options for WandB logging.
-#  enable_logging: true # Activate logging.
-#  wandb_init_args: # WandB init arguments.
-#    project: attribute_identification
-#    save_code: true
-#    name: test
+wandb: # Options for WandB logging.
+  enable_logging: true # Activate logging.
+  wandb_init_args: # WandB init arguments.
+    project: Eval_Haircolor_Gender
+    save_code: true
+    name: eval Male 1.0 - more GPU test
+

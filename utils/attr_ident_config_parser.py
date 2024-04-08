@@ -29,10 +29,12 @@ class AttrIdentConfigParser:
     @property
     def attribute(self):
         return self._config['attribute']
-
+    
+    
     @property
-    def benchmark(self):
-        return self._config['benchmark']
+    def prompts(self):
+        return self._config['prompts']
+
 
     @property
     def stylegan_model(self):
@@ -53,8 +55,8 @@ class AttrIdentConfigParser:
     
     @property
     def wandb_project(self):
-        return self._config['wandb_project']
+        return self._config['wandb']['wandb_init_args']['project']
     
     @property
     def wandb_name(self):
-        return self._config['wandb_name']
+        return self._config['wandb']['wandb_init_args']['name']
