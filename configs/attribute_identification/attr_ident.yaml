@@ -1,5 +1,6 @@
 ---
-wandb_attack_run: Attacks_Haircolor_Gender/pi24oy4c # WandB run id for attack that should be evaluated
+#wandb_attack_run: Attacks_Haircolor_Gender/pi24oy4c # WandB run id for attack that should be evaluated
+wandb_attack_run: Attacks_Haircolor_Gender/yxjtduu1
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
@@ -23,5 +24,5 @@ wandb: # Options for WandB logging.
   wandb_init_args: # WandB init arguments.
     project: Eval_Haircolor_Gender
     save_code: true
-    name: eval Male 1.0
+    name: eval Male 1.0 - more GPU test
 
