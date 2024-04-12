@@ -65,23 +65,26 @@ class CelebA_Attributes(Dataset):
         for i in self.class1_idx:
             _, tensor_elements = self.celeba_attr[int(i)]
             c1 += tensor_elements[hidden_attributes[0]]
-        print("ratio hidden attr class1: ", c1/len(self.class1_idx))
+        print("ratio hidden attr [0] class1: ", c1/len(self.class1_idx))
 
         c2 = 0
         for i in self.class2_idx:
             _, tensor_elements = self.celeba_attr[int(i)]
-            c2 += tensor_elements[20]
-        print("ratio hidden attr class2: ", c2/len(self.class2_idx))
+            c2 += tensor_elements[hidden_attributes[0]]
+        print("ratio hidden attr [0] class2: ", c2/len(self.class2_idx))
 
 
         # define dataset 
         indices = np.concatenate([self.class1_idx, self.class2_idx])
+        print("Selected Dataset idx: ", indices)
         
         # assign all elements of class 1 the target value 1, and those of class 2 the target value 0
         targets_mapping = {
-            indices[i]: 1 if i < len(self.class1_idx) else 0 
+            indices[i]: 0 if i < len(self.class1_idx) else 1 
             for i in range(len(indices))
         }
+
+        print("targets mapping: ", targets_mapping)
 
         # remove samples with ambiguous labels
         if (len(self.discarded_idx) < 0):
