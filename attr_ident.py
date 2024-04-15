@@ -97,7 +97,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images"
+        outdir = "media/images-test3"
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
@@ -145,8 +145,8 @@ def get_images(run, image_location, G=None):
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images in "media/images" 
     decisions = []
-    for i in os.listdir("media/images"):
-        image = Image.open("media/images/" +str(i)) 
+    for i in os.listdir("media/images-test3"):
+        image = Image.open("media/images-test3/" +str(i)) 
         all_probs = torch.tensor([])
         decision = 0.0
     
