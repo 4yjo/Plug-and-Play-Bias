@@ -76,15 +76,12 @@ class CelebA_Attributes(Dataset):
 
         # define dataset 
         indices = np.concatenate([self.class1_idx, self.class2_idx])
-        print("Selected Dataset idx: ", indices)
         
         # assign all elements of class 1 the target value 1, and those of class 2 the target value 0
         targets_mapping = {
             indices[i]: 0 if i < len(self.class1_idx) else 1 
             for i in range(len(indices))
         }
-
-        print("targets mapping: ", targets_mapping)
 
         # remove samples with ambiguous labels
         if (len(self.discarded_idx) < 0):

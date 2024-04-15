@@ -37,17 +37,7 @@ def main():
     clip_model, clip_processor = load_clip()
     
     image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
-
-    wandb.init(
-        project=config.wandb_project,
-        name = config.wandb_name,
-        config={
-            "dataset": config.wandb_attack_run,
-            "prompts": config.prompts,
-            }
-    )
    
-
 
     if (image_location == 'wandb-weights'):
         #load stylegan
@@ -67,9 +57,13 @@ def main():
 
     print("male appearing in class 1: ", c1_attr_count)
     print("male appearing in class 2: ", c2_attr_count)
-    wandb.log({"c1 male appearing": c1_attr_count})
-    wandb.log({"c2 male appearing": c2_attr_count})
-    wandb.finish()
+
+    # add results to wandb attack run logs
+    run.summary["c1_male"] = c1_attr_count
+    run.summary["c2_male"] = c2_attr_count
+    run.summary.update()
+    run.config['prompts'] = config.prompts
+    run.update()
 
 def load_clip():
     # use transformers to load pretrained clip model and processor
@@ -146,6 +140,9 @@ def identify_attributes(prompts, clip_processor, clip_model):
     # split image directory to group images by class 1 and class 2
     all_img = sorted(os.listdir("media/images-test3"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
     
+     # TODO Throw error if image is not in right format?
+
+
     c1_img = all_img[:int(len(all_img)/2)]
     c1_decisions = []
 
@@ -155,6 +152,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
     for  i in c1_img:
         image = Image.open("media/images-test3/" +str(i)) 
+
         c1_all_probs = torch.tensor([])
         c1_decision = 0.0
     

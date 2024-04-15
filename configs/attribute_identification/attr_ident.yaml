@@ -1,6 +1,5 @@
 ---
-#wandb_attack_run: Attacks_Haircolor_Gender/pi24oy4c # WandB run id for attack that should be evaluated
-wandb_attack_run: AttacksHaircolorGender/0gaqjcxn
+wandb_attack_run: AttacksHaircolorGender/kz2mbctl # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42

@@ -359,7 +359,6 @@ def main():
         evaluation_model_dist.to(device)
         evaluation_model_dist.eval()
 
-        print("Deubg print Attr, hidden Attr",attributes, hidden_attributes)
         # Compute average feature distance on Inception-v3
         evaluate_inception = DistanceEvaluation(evaluation_model_dist,
                                                 synthesis, 299,
