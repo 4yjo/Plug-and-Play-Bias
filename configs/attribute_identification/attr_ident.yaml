@@ -20,9 +20,9 @@ rtpt: # State RTPT details. It renames the process to show the remaining time an
 
 
 wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
+  enable_logging: true # Activate logging. 
   wandb_init_args: # WandB init arguments.
-    project: Eval_Haircolor_Gender
+    project: Tests
     save_code: true
-    name: Male 1.0 100 samples
+    name: 
 

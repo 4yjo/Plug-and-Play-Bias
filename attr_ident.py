@@ -12,18 +12,12 @@ from utils.attr_ident_config_parser import AttrIdentConfigParser
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 from utils.stylegan import load_generator
-#from utils.wandb import load_model
+
 import os
 #from os import listdir
 
 
 def main():
-    # Set devices
-    #torch.set_num_threads(24)
-    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #gpu_devices = [i for i in range(torch.cuda.device_count())]
-
-
     # Define and parse attack arguments
     parser = create_parser()
     config, args = parse_arguments(parser)
@@ -52,6 +46,7 @@ def main():
             "prompts": config.prompts,
             }
     )
+   
 
 
     if (image_location == 'wandb-weights'):
@@ -60,18 +55,20 @@ def main():
     else:
         G = None
         
-    get_images(run, image_location, G)
-    print("All images loaded from ", str(image_location))
+    #get_images(run, image_location, G)
+    #print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
     print(prompts)
     
+    # identifies hidden attribute in images, e.g. male and counts number of images with
+    # the attribute for each class e.g. class 1 = blond hair, class2 = black hari
+    c1_attr_count, c2_attr_count = identify_attributes(prompts, clip_processor, clip_model)
 
-    acc_attr = identify_attributes(prompts, clip_processor, clip_model)
-
-    print("identified as male appearing: ", acc_attr)
-    print("identified as female appearing: ", 1-acc_attr)
-    wandb.log({"accurracy male appearing": acc_attr})
+    print("male appearing in class 1: ", c1_attr_count)
+    print("male appearing in class 2: ", c2_attr_count)
+    wandb.log({"c1 male appearing": c1_attr_count})
+    wandb.log({"c2 male appearing": c2_attr_count})
     wandb.finish()
 
 def load_clip():
@@ -97,7 +94,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images-test3"
+        outdir = "media/images-test3" #TODO change to media/images
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
@@ -140,38 +137,63 @@ def get_images(run, image_location, G=None):
         
         #save images
         for i in range(x.shape[0]):
-            torchvision.utils.save_image(x[i], f'{outdir}/img-{i}.png') 
+            torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
 
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images in "media/images" 
-    decisions = []
-    for i in os.listdir("media/images-test3"):
+
+
+    # split image directory to group images by class 1 and class 2
+    all_img = sorted(os.listdir("media/images-test3"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
+    
+    c1_img = all_img[:int(len(all_img)/2)]
+    c1_decisions = []
+
+    c2_img = all_img[int(len(all_img)/2):]
+    c2_decisions = []
+
+
+    for  i in c1_img:
         image = Image.open("media/images-test3/" +str(i)) 
-        all_probs = torch.tensor([])
-        decision = 0.0
+        c1_all_probs = torch.tensor([])
+        c1_decision = 0.0
     
         for prompt in prompts:
             inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
-            all_probs = torch.cat((all_probs, probs),0) #stores probabilities for each prompt
+            c1_all_probs = torch.cat((c1_all_probs, probs),0) #stores probabilities for each prompt
+
+        # majority vote over all prompts
+        # decision = 0 for first prompt in array, 1 for 2nd prompt in array 
+        c1_decision = 1 if torch.sum(torch.argmax(c1_all_probs, dim=1))/len(prompts) > 0.5 else 0
+        c1_decisions.append(c1_decision) 
+
+
+        
+    for  i in c2_img:
+        image = Image.open("media/images-test3/" +str(i)) 
+        c2_all_probs = torch.tensor([])
+        c2_decision = 0.0
+    
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image # CLIP similarity score
+            probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
+            c2_all_probs = torch.cat((c2_all_probs, probs),0) #stores probabilities for each prompt
     
         
         # majority vote over all prompts
         # decision = 0 for first prompt in array, 1 for 2nd prompt in array 
-        decision = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.7 else 0
-        print("Image: ", str(i), all_probs, "-->", decision)
-        decisions.append(decision) 
+        c2_decision = 1 if torch.sum(torch.argmax(c2_all_probs, dim=1))/len(prompts) > 0.5 else 0
+        c2_decisions.append(c2_decision) 
 
-    print("Decisions")
-    print(decisions)  
-    print("len decisions: ", len(decisions))
-    print("sum decisions: ", np.sum(decisions))
-    acc_attr = (len(decisions)-np.sum(decisions))/len(decisions) 
+        c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
+        c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
 
-    print("Percentage identified as male-appearing: ", acc_attr)  
-    return acc_attr 
+    return c1_attr_count, c2_attr_count
 
     
     '''
