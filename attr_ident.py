@@ -45,7 +45,7 @@ def main():
     else:
         G = None
         
-    #get_images(run, image_location, G)
+    get_images(run, image_location, G)
     #print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
@@ -74,12 +74,9 @@ def load_clip():
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
-        print('using locally stored images for CLIP evaluation')
-        #if os.path.exists("media/images"):
-         #   c = len([f for f in os.listdir("media/images")]) #TODO uncomment
-        if os.path.exists("with_beard"):
-            c = len([f for f in os.listdir("with_beard")])
-            #print("found ", str(c), " images locally in media/images")
+        if os.path.exists("media/images"):
+            c = len([f for f in os.listdir("media/images")])
+            print('Found ', c, ' images in media/images')
         else: 
             raise FileNotFoundError(f"The images are not found in media/images. Use wandb-weights instead")
         
@@ -88,7 +85,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images-test3" #TODO change to media/images
+        outdir = "media/images" 
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
@@ -138,7 +135,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
 
     # split image directory to group images by class 1 and class 2
-    all_img = sorted(os.listdir("media/images-test3"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
+    all_img = sorted(os.listdir("media/images"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
     
      # TODO Throw error if image is not in right format?
 
@@ -151,7 +148,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
 
     for  i in c1_img:
-        image = Image.open("media/images-test3/" +str(i)) 
+        image = Image.open("media/images/" +str(i)) 
 
         c1_all_probs = torch.tensor([])
         c1_decision = 0.0
@@ -171,7 +168,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
         
     for  i in c2_img:
-        image = Image.open("media/images-test3/" +str(i)) 
+        image = Image.open("media/images/" +str(i)) 
         c2_all_probs = torch.tensor([])
         c2_decision = 0.0
     
