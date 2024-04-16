@@ -37,19 +37,20 @@ class CelebA_Attributes(Dataset):
         #hidden_attributes = hidden_attributes 
         self.split_seed = split_seed
 
-        # choose if attribute should be negated 
-        # (e.g. to get people with beard using negation of no_beard attribute)
-        attr_negation = False # default is false
-
-
         # create subsets for class 1 and class 2
         if (len(attributes) == 0):
             raise Exception('please specify 2 attributes in config file')
-        c1_attr = attributes[0] # TODO maybe change to also allow attribute negations
-        c2_attr = attributes[1]
+        
+        elif (len(attributes) == 1):
+            self.class1_idx = self.create_idx(attributes[0], hidden_attributes, ratio)
+            self.class2_idx = self.create_idx(attributes[0], hidden_attributes, 0.5, negation=True)
 
-        self.class1_idx = self.create_idx(c1_attr, hidden_attributes, ratio)
-        self.class2_idx = self.create_idx(c2_attr, hidden_attributes, 0.5)
+        elif (len(attributes) == 2):
+            c1_attr = attributes[0] # TODO maybe change to also allow attribute negations
+            c2_attr = attributes[1]
+
+            self.class1_idx = self.create_idx(c1_attr, hidden_attributes, ratio)
+            self.class2_idx = self.create_idx(c2_attr, hidden_attributes, 0.5)
      
         # make class 1 and class 2 the same size
         if (len(self.class2_idx) > len(self.class1_idx)):
@@ -125,16 +126,30 @@ class CelebA_Attributes(Dataset):
         else:
             return im, self.targets[idx]
 
-    def create_idx(self, attr, hidden_attr=None, ratio=None):
-            if hidden_attr is None:
+    def create_idx(self, attr, hidden_attr=None, ratio=None, negation=False):
+            if (hidden_attr is None) & (negation is False):
                 # e.g. puts all blond people in a class without checking hidden_attribute
                 # NOTE: it is advised to provide the hidden attribute and a ratio of 0.5 to guarantee equal distribution
                 attr_mask = self.celeba_attr.attr[:,attr] > 0 #e.g all blond people
                 class_idx = torch.where(attr_mask)[0] 
                 return class_idx
+            
+            elif (hidden_attr is None) & (negation is True):
+                # e.g. puts all blond people in a class without checking hidden_attribute
+                # NOTE: it is advised to provide the hidden attribute and a ratio of 0.5 to guarantee equal distribution
+                attr_mask_to_invert = self.celeba_attr.attr[:,attr] > 0 #e.g all blond people
+                attr_mask = ~attr_mask_to_invert
+                class_idx = torch.where(attr_mask)[0] 
+                return class_idx
 
-            else:
-                attr_mask = self.celeba_attr.attr[:,attr] > 0
+            elif (hidden_attr is not None):
+                # define attribute mask 
+                if (negation is False):
+                    attr_mask = self.celeba_attr.attr[:,attr] > 0
+                elif (negation is True):
+                    attr_mask_to_invert = self.celeba_attr.attr[:,attr] > 0
+                    attr_mask = ~attr_mask_to_invert
+
                 # aditionally filter for hidden attribute
                 hidden_attr_mask = self.celeba_attr.attr[:, hidden_attr[0]] >0  #e.g. male
                 if (len(hidden_attr)==1):

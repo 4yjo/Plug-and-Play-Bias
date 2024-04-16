@@ -62,7 +62,7 @@ def main():
 
     
     
-    '''  
+    '''
     # Save images locally to inspect train set 
     outdir1 = "testmedia/images-class1" #just for testing
     os.makedirs(outdir1, exist_ok=True) #just for testing
@@ -81,7 +81,7 @@ def main():
             #print('train set ', train_set[i]) prints tensor holding image data and target
             torchvision.utils.save_image(train_set[i][0], filename) 
     print('images saved')
-    '''  
+    ''' 
 
 
     criterion = torch.nn.CrossEntropyLoss()
@@ -99,7 +99,7 @@ def main():
     time_stamp = time.strftime("%Y%m%d_%H%M%S")
     save_path = os.path.join(config.training['save_path'],
                              f"{config.model['architecture']}_{time_stamp}")
- 
+    
     # Start training
     target_model.fit(
         training_data=train_set,
@@ -122,7 +122,7 @@ def main():
         wandb_init_args=config.wandb['args'],
         save_base_path=save_path,
         config_file=args.config)
-
+    
 
 if __name__ == '__main__':
     main()
