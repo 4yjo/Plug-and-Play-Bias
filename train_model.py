@@ -60,21 +60,28 @@ def main():
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
 
-
-    '''
+    
+    
+    '''  
     # Save images locally to inspect train set 
-    outdir = "testmedia/images" #just for testing
-    os.makedirs(outdir, exist_ok=True) #just for testing
+    outdir1 = "testmedia/images-class1" #just for testing
+    os.makedirs(outdir1, exist_ok=True) #just for testing
 
-    for i, img in enumerate(train_set[:10]):
-        filename = f"{outdir}/img-{i}.png"
-        #print('train set ', train_set[i]) prints tensor holding image data and target
-        print(i, train_set[i][1]) 
+    outdir2 = "testmedia/images-class2" #just for testing
+    os.makedirs(outdir2, exist_ok=True) #just for testing
 
-        torchvision.utils.save_image(train_set[i][0], filename) 
+    for i in range(100):
+        if (train_set[i][1]==0): #for class 1
+            filename = f"{outdir1}/{i}.png" 
+            #print('train set ', train_set[i]) prints tensor holding image data and target
+            torchvision.utils.save_image(train_set[i][0], filename) 
+
+        if (train_set[i][1]==1): #for class 2
+            filename = f"{outdir2}/{i}.png" 
+            #print('train set ', train_set[i]) prints tensor holding image data and target
+            torchvision.utils.save_image(train_set[i][0], filename) 
     print('images saved')
-    '''
-
+    '''  
 
 
     criterion = torch.nn.CrossEntropyLoss()
@@ -92,7 +99,7 @@ def main():
     time_stamp = time.strftime("%Y%m%d_%H%M%S")
     save_path = os.path.join(config.training['save_path'],
                              f"{config.model['architecture']}_{time_stamp}")
-
+ 
     # Start training
     target_model.fit(
         training_data=train_set,

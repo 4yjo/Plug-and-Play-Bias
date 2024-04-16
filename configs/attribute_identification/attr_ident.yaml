@@ -1,11 +1,10 @@
 ---
-wandb_attack_run: AttacksHaircolorGender/kz2mbctl # WandB run id for attack that should be evaluated
+wandb_attack_run: plugandplay/Tests/u3qua3ot # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
 
-image_location: 'wandb-weights' # 'local' if images already downloaded to media/images, 
-                                # 'wandb-media' to download from run, 
+image_location: 'local' # 'local' if images already downloaded to media/images, 
                                 # 'wandb-weights' to generate from weight vector if media is not stored on wandb
 
 
