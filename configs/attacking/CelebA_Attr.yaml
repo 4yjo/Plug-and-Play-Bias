@@ -56,4 +56,4 @@ wandb: # Options for WandB logging.
   wandb_init_args: # WandB init arguments
     project: AttacksHaircolorGender
     save_code: true
-    name: Male 1.0 100 samples
+    name: Male 1.0 
