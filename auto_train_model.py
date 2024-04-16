@@ -11,5 +11,5 @@ ratios = [i/10 for i in range(0,11)]
 
 # Iterate over the ratios and run names
 for ratio in ratios:
-    command = f"python train_model.py  -c=configs/training/default_training.yaml --attributes 9 8  --hidden_attributes 20 --ratio {ratio} --run_name=\"Male_{ratio}\"" 
+    command = f"python train_model.py  -c=configs/training/default_training.yaml --attributes 21  --hidden_attributes 15 --ratio {ratio} --run_name=\"Glasses_{ratio}\"" 
     subprocess.run(command, shell=True)
