@@ -216,8 +216,7 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
-
-
+    '''
     ####################################
     #         Attack Accuracy          #
     ####################################
@@ -415,7 +414,7 @@ def main():
     ####################################
     #          Finish Logging          #
     ####################################
-
+    '''
     if rtpt:
         rtpt.step(subtitle=f'Finishing up')
 
@@ -457,6 +456,7 @@ def main():
         log_final_images(log_imgs, log_predictions, log_max_confidences,
                          log_target_confidences, idx_to_class)
 
+        '''
         # Find closest training samples to final results
         log_nearest_neighbors(log_imgs,
                               log_targets,
@@ -497,7 +497,7 @@ def main():
         final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
                             avg_dist_facenet, avg_dist_inception,
                             fid_score, precision, recall, density, coverage)
-
+        '''
 
 def create_parser():
     parser = argparse.ArgumentParser(

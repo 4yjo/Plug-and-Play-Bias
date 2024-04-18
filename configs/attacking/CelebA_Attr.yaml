@@ -54,6 +54,6 @@ final_selection:
 wandb: # Options for WandB logging.
   enable_logging: true # Activate logging.
   wandb_init_args: # WandB init arguments
-    project: AttacksHaircolorGender
+    project: AttacksMouthopenGlasses
     save_code: true
-    name: Male 1.0 
+    name: 

@@ -48,6 +48,7 @@ def main():
     get_images(run, image_location, G)
     #print("All images loaded from ", str(image_location))
 
+'''
     prompts = config.prompts
     print(prompts)
     
@@ -64,7 +65,7 @@ def main():
     run.summary.update()
     run.config['prompts'] = config.prompts
     run.update()
-
+'''
 def load_clip():
     # use transformers to load pretrained clip model and processor
     clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -85,7 +86,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images" 
+        outdir = "media/images-mouthopen" 
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
