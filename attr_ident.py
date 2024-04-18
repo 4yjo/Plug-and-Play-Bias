@@ -86,7 +86,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images-mouthopen2" 
+        outdir = "media/images-mouthopen3" 
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
