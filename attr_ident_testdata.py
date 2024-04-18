@@ -67,7 +67,7 @@ def main():
         project=config.wandb_project,
         name = config.wandb_name,
         config={
-           "dataset": "Gender-Testdata-Female & Gender-Testdata-Male",
+           "dataset": "Eyeglasses-Testdata-With & Eyeglasses-Testdata-Without",
            "prompts": prompts})
     
     # Load CLIP 
@@ -75,29 +75,13 @@ def main():
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     #tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
-    image_location = config.image_location # 'local', 'wandb-media' or 'wandb-weights'
 
-    if (image_location == 'wandb-weights'):
-        #load stylegan
-        G = load_generator(config.stylegan_model)
-    else:
-        G = None
+    #prompt_accuracy(prompts[0], processor, model) # use this to calc acc for prompts
 
-    get_images(run, image_location, G)
+    identify_attributes(prompts, processor, model) # use this for acc of majority vote
 
-    #prompt_accuracy(prompts[0], processor, model) # TODO for all prompts
    
-    identify_attributes(prompts, processor, model)
    
-def get_images(run, image_location, G=None):
-    #create a local folder with test images to evaluate your prompts and put its path here:
-    
-    if os.path.exists("Gender-Testdata-Female"):
-        c = len([f for f in os.listdir("Gender-Testdata-Female")])
-        print("found ", str(c), " images")
-    else: 
-        raise FileNotFoundError(f"The images are not found in media/images. Use wandb-media or wandb-weights instead")
-
 def prompt_accuracy(prompt, clip_processor, clip_model):
     # evaluates CLIP Accuracy for given prompt on Testdata
     # prompts should be provided as array of 2 strings, where the first prompt describes hidden attribute and second its negation
@@ -112,9 +96,9 @@ def prompt_accuracy(prompt, clip_processor, clip_model):
     decision_0 = 0.0
     counter_0 = 0.0
 
-    for i in os.listdir("Gender-Testdata-Male"):
-        image = Image.open("Gender-Testdata-Male/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+    for i in os.listdir("Eyeglasses-Testdata-With"):
+        image = Image.open("Eyeglasses-Testdata-With/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
         logits_per_image = outputs.logits_per_image # CLIP similarity score
         prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -146,9 +130,9 @@ def prompt_accuracy(prompt, clip_processor, clip_model):
     decision_1 = 0.0
     counter_1 = 0.0
 
-    for i in os.listdir("Gender-Testdata-Female"):
-        image = Image.open("Gender-Testdata-Female/" + str(i)) 
-        inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+    for i in os.listdir("Eyeglasses-Testdata-Without"):
+        image = Image.open("Eyeglasses-Testdata-Without/" + str(i)) 
+        inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
         outputs = clip_model(**inputs)
         logits_per_image = outputs.logits_per_image # CLIP similarity score
         prob = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -174,13 +158,13 @@ def prompt_accuracy(prompt, clip_processor, clip_model):
 
  
     wandb.log({
-        "male acc": acc_0,
-        "female acc": acc_1,
+        "with glasses acc": acc_0,
+        "without glasses acc": acc_1,
         "overall acc": overall_acc,
-        "highest prop male": highest_prop_0,
-        "lowest prop male": lowest_prop_0,
-        "highest prop female": highest_prop_1,
-        "lowest prop female": lowest_prop_1
+        "highest prop with glasses": highest_prop_0,
+        "lowest prop with glasses": lowest_prop_0,
+        "highest prop without glasses": highest_prop_1,
+        "lowest prop without glasses": lowest_prop_1
         })
 
 def identify_attributes(prompts, clip_processor, clip_model):
@@ -191,13 +175,13 @@ def identify_attributes(prompts, clip_processor, clip_model):
     ####################################
     
     decisions = []
-    for i in os.listdir("Gender-Testdata-Male"):
+    for i in os.listdir("Eyeglasses-Testdata-With"):
         all_probs = torch.tensor([])
         decision = 0.0
 
-        image = Image.open("Gender-Testdata-Male/" + str(i)) 
+        image = Image.open("Eyeglasses-Testdata-With/" + str(i)) 
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -209,19 +193,19 @@ def identify_attributes(prompts, clip_processor, clip_model):
        
     acc_0 = (len(decisions)-np.sum(decisions))/len(decisions) 
 
-    print("Percentage identified as male-appearing from male testset: ", acc_0)  
+    print("Percentage identified as wearing glasses from with glasses testset: ", acc_0)  
     
     ######################################
     ## dataset negated hidden attribute###
     ######################################
 
     decisions = []
-    for i in os.listdir("Gender-Testdata-Female"):
+    for i in os.listdir("Eyeglasses-Testdata-Without"):
         all_probs = torch.tensor([])
         decision = 0.0
-        image = Image.open("Gender-Testdata-Female/" + str(i)) 
+        image = Image.open("Eyeglasses-Testdata-Without/" + str(i)) 
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -232,15 +216,15 @@ def identify_attributes(prompts, clip_processor, clip_model):
         decisions.append(decision) 
 
     acc_1 = np.sum(decisions)/len(decisions)
-    print("Percentage identified as female-appearing from female testset: ", acc_1)  
+    print("Percentage identified as not wearing glasses from testset without glasses: ", acc_1)  
 
     
     overall_acc = np.mean([acc_0, acc_1])
     print("Overall accuracy: ", overall_acc)
 
     wandb.log({
-        "male acc": acc_0,
-        "female acc": acc_1,
+        "with glasses acc": acc_0,
+        "without glasses acc": acc_1,
         "overall acc": overall_acc,
         })
 

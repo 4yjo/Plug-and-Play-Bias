@@ -46,7 +46,7 @@ def main():
         G = None
         
     get_images(run, image_location, G)
-    #print("All images loaded from ", str(image_location))
+    print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
     print(prompts)
@@ -55,12 +55,12 @@ def main():
     # the attribute for each class e.g. class 1 = blond hair, class2 = black hari
     c1_attr_count, c2_attr_count = identify_attributes(prompts, clip_processor, clip_model)
 
-    print("male appearing in class 1: ", c1_attr_count)
-    print("male appearing in class 2: ", c2_attr_count)
+    print("identified with glasses in class 1: ", c1_attr_count)
+    print("identified with glasses in class 2: ", c2_attr_count)
 
     # add results to wandb attack run logs
-    run.summary["c1_male"] = c1_attr_count
-    run.summary["c2_male"] = c2_attr_count
+    run.summary["c1_glasses"] = c1_attr_count
+    run.summary["c2_glasses"] = c2_attr_count
     run.summary.update()
     run.config['prompts'] = config.prompts
     run.update()
@@ -154,7 +154,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c1_decision = 0.0
     
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -173,7 +173,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c2_decision = 0.0
     
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
