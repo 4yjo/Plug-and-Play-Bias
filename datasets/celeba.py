@@ -43,7 +43,7 @@ class CelebA_Attributes(Dataset):
         
         elif (len(attributes) == 1):
             self.class1_idx = self.create_idx(attributes[0], hidden_attributes, ratio)
-            self.class2_idx = self.create_idx(attributes[0], hidden_attributes, 0.5, negation=True)
+            self.class2_idx = self.create_idx(attributes[0], hidden_attributes, ratio, negation=True)
 
         elif (len(attributes) == 2):
             c1_attr = attributes[0] # TODO maybe change to also allow attribute negations

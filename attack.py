@@ -216,7 +216,7 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
-
+    '''
 
     ####################################
     #         Attack Accuracy          #
@@ -411,7 +411,7 @@ def main():
             print('Mean Distance on FaceNet: ', avg_dist_facenet.cpu().item())
     except Exception:
         print(traceback.format_exc())
-
+    '''
     ####################################
     #          Finish Logging          #
     ####################################
@@ -433,6 +433,7 @@ def main():
         log_predictions = []
         log_max_confidences = []
         log_target_confidences = []
+        
         # Log images with smallest feature distance
         for label in label_subset:
             mask = torch.where(final_targets == label, True, False)
@@ -443,20 +444,21 @@ def main():
                                 resize=config.attack_resize)
             log_imgs.append(imgs)
             log_targets += [label for i in range(num_imgs)]
-            log_predictions.append(torch.tensor(predictions)[mask][:num_imgs])
-            log_max_confidences.append(
-                torch.tensor(maximum_confidences)[mask][:num_imgs])
-            log_target_confidences.append(
-                torch.tensor(target_confidences)[mask][:num_imgs])
+            #log_predictions.append(torch.tensor(predictions)[mask][:num_imgs])
+            #log_max_confidences.append(
+            #    torch.tensor(maximum_confidences)[mask][:num_imgs])
+            #log_target_confidences.append(
+            #    torch.tensor(target_confidences)[mask][:num_imgs])
 
         log_imgs = torch.cat(log_imgs, dim=0)
-        log_predictions = torch.cat(log_predictions, dim=0)
-        log_max_confidences = torch.cat(log_max_confidences, dim=0)
-        log_target_confidences = torch.cat(log_target_confidences, dim=0)
+        #log_predictions = torch.cat(log_predictions, dim=0)
+        #log_max_confidences = torch.cat(log_max_confidences, dim=0)
+        #log_target_confidences = torch.cat(log_target_confidences, dim=0)
 
         log_final_images(log_imgs, log_predictions, log_max_confidences,
                          log_target_confidences, idx_to_class)
 
+        '''
         # Find closest training samples to final results
         log_nearest_neighbors(log_imgs,
                               log_targets,
@@ -497,7 +499,7 @@ def main():
         final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
                             avg_dist_facenet, avg_dist_inception,
                             fid_score, precision, recall, density, coverage)
-
+        '''
 
 def create_parser():
     parser = argparse.ArgumentParser(
@@ -641,11 +643,7 @@ def log_final_images(imgs, predictions, max_confidences, target_confidences,
                      idx2cls):
     wand_imgs = [
         wandb.Image(
-            img.permute(1, 2, 0).numpy(),
-            caption=
-            f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
-        ) for img, pred, max_conf, target_conf in zip(
-            imgs.cpu(), predictions, max_confidences, target_confidences)
+            img.permute(1, 2, 0).numpy()) for img in zip(imgs.cpu())
     ]
     wandb.log({'final_images': wand_imgs})
 
