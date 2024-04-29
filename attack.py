@@ -27,6 +27,10 @@ from utils.datasets import (create_target_dataset, get_facescrub_idx_to_class,
 from utils.stylegan import create_image, load_discrimator, load_generator
 from utils.wandb import *
 
+import os
+import torchvision
+import torchvision.transforms.functional as F
+
 
 def main():
     ####################################
@@ -89,6 +93,8 @@ def main():
     synthesis.num_ws = num_ws
     discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
 
+    synthesis.eval() #TODO double-check if this is okay here
+
     # Load basic attack parameters
     num_epochs = config.attack['num_epochs']
     batch_size_single = config.attack['batch_size']
@@ -99,6 +105,44 @@ def main():
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
+
+    # ---
+    # STEP 1 generate images from w to inspect with CLIP to make sure that initial vector space is balanced
+     
+    # make local directory to store generated images
+    outdir = "initial_vectors/images" 
+    os.makedirs(outdir, exist_ok=True)
+
+    # copy data to match dimensions
+    if w_init.shape[1] == 1:
+        w_init_expanded = torch.repeat_interleave(w_init,
+                                    repeats=synthesis.num_ws,
+                                    dim=1)
+    else: 
+        w_init_expanded = w_init
+
+    print(w_init_expanded.shape)
+    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
+
+    print(x.shape)
+    # crop and resize
+    x = F.resize(x, 224, antialias=True)
+    #x = F.center_crop(x, (800, 800)) #crop images
+    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print(x.shape)
+        
+    #save images
+    for i in range(x.shape[0]):
+        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    
+    print('images saved to ', str(outdir))
+
+    # aha results: e.g. for glasses 0.5 there are just 7/40 glasses
+
+    #STEP 2 manipulate latent space to create balanced distribution of hidden attribute in w_init
+
+    #---
+
 
     # Initialize wandb logging
     if config.logging:
