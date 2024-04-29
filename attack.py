@@ -139,7 +139,13 @@ def main():
 
     # aha results: e.g. for glasses 0.5 there are just 7/40 glasses
 
+    #? move attr_ident to attack.py as it is my new metric? 
+
+    # count images using clip (see notes in obsidian d)..)
+
     #STEP 2 manipulate latent space to create balanced distribution of hidden attribute in w_init
+
+    
 
     #---
 
@@ -685,19 +691,24 @@ def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
 
 def log_final_images(imgs, predictions, max_confidences, target_confidences,
                      idx2cls):
+   
     wand_imgs = [
         wandb.Image(
             img.permute(1, 2, 0).numpy()) for img in zip(imgs.cpu())
     ]
     wandb.log({'final_images': wand_imgs})
 
-def save_final_images():
-    #TODO save final images to media/images
-    pass
+
+    examples = []
+for i in range(3):
+    pixels = np.random.randint(low=0, high=256, size=(100, 100, 3))
+    image = wandb.Image(pixels, caption=f"random field {i}")
+
+
 
 def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, 
                         avg_dist_facenet, avg_dist_eval, fid_score, precision,
-                        recall, density, coverage): #TODO insert acc_top5
+                        recall, density, coverage):
     wandb.save('attacks/gradient_based.py')
     wandb.run.summary['correct_avg_conf'] = avg_correct_conf
     wandb.run.summary['total_avg_conf'] = avg_total_conf
