@@ -47,6 +47,7 @@ def find_initial_w(generator,
 
     with torch.no_grad():
         confidences = []
+        bias_attributes = []
         final_candidates = []
         final_confidences = []
         candidates = generator.mapping(z,
@@ -86,9 +87,14 @@ def find_initial_w(generator,
                     target_conf = target_model(im).softmax(dim=1) / len(imgs)
             confidences.append(target_conf)
 
-        confidences = torch.cat(confidences, dim=0)
+            bias_attr = [] # TODO what happens here? Initialize new list for each w?
+            for im in imgs:
+               # bias_attr = CLIP Magic
+               pass
+            bias_attributes.append(bias_attr)
 
-        bias_counter = 0 # counts number of images that hold bias attribute, should equal ratio in the end
+        confidences = torch.cat(confidences, dim=0)
+        bias_attributes = torch.cat(bias_attributes, dim=0)
 
         for target in targets:
             # find candidate with highest confidence for each target
@@ -106,6 +112,13 @@ def find_initial_w(generator,
             #   sorted_conf.pop()
             #   sorted_idx.pop()
 
+            # check for balance of bias attr in candidate selection
+            bias_counter = torch.sum(bias_attributes[sorted_idx[0]].unsqueeze(0))
+
+            diff = ratio*nr candidates per target - bias_counter
+            while diff > 0:
+                sorted_idx.pop()
+                sorted_conf.pop()
 
             final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0)) #get image with hightes confidence
             final_confidences.append(sorted_conf[0].cpu().item())
