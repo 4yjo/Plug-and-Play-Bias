@@ -87,16 +87,38 @@ def find_initial_w(generator,
             confidences.append(target_conf)
 
         confidences = torch.cat(confidences, dim=0)
+
+        bias_counter = 0 # counts number of images that hold bias attribute, should equal ratio in the end
+
         for target in targets:
+            # find candidate with highest confidence for each target
             sorted_conf, sorted_idx = confidences[:,
                                                   target].sort(descending=True)
-            final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
+            
+            #while bias_counter < 0.5: # TODO import actual ratio
+            
+            # TODO implement CLIP check for bias attribute here as second point for choice
+            
+            # only keep images with bias attribute as long as ratio is not representative
+            # if has attribute:
+            #   bias_counter += 1
+            # else:
+            #   sorted_conf.pop()
+            #   sorted_idx.pop()
+
+
+            final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0)) #get image with hightes confidence
             final_confidences.append(sorted_conf[0].cpu().item())
             # Avoid identical candidates for the same target
             confidences[sorted_idx[0], target] = -1.0
 
+
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
     final_confidences = [np.round(c, 2) for c in final_confidences]
+
+    # TODO change selection process -> add CLIP evaluation for biased attribute
+
+
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
 
     if filepath:
