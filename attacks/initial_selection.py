@@ -5,6 +5,11 @@ from tqdm import tqdm
 from utils.stylegan import adjust_gen_images
 
 
+from transformers import CLIPProcessor, CLIPModel
+import torchvision
+import os
+from PIL import Image
+
 def find_initial_w(generator,
                    target_model,
                    targets,
@@ -44,6 +49,18 @@ def find_initial_w(generator,
     c = None
     target_model.eval()
     five_crop = None
+
+    # initialize CLIP #TODO put somewhere else later
+
+    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+    prompt = ['a person with glasses', 'a person with no glasses']
+
+
+    # TODO for testing only
+    outdir = "media/test" 
+    os.makedirs(outdir, exist_ok=True)
 
     with torch.no_grad():
         confidences = []
@@ -87,14 +104,27 @@ def find_initial_w(generator,
                     target_conf = target_model(im).softmax(dim=1) / len(imgs)
             confidences.append(target_conf)
 
-            bias_attr = [] # TODO what happens here? Initialize new list for each w?
+            #bias_attr = [] # TODO what happens here? Initialize new list for each w?
             for im in imgs:
-               # bias_attr = CLIP Magic
-               pass
-            bias_attributes.append(bias_attr)
+                print('step1')
+                for i in range(len(im)):
+                    im[i] = (im[i] * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+                    torchvision.utils.save_image(im[i], f'{outdir}/{i}.png') #save image for testing
+                    #inputs = clip_processor(text=prompt, images=im[i], return_tensors="pt", padding=True)
+                    inputs = clip_processor(text=prompt, images=Image.open(f'{outdir}/{i}.png'), return_tensors="pt", padding=True)
+                    outputs = clip_model(**inputs)
+                    logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+                    probs = logits_per_image.softmax(dim=1)  # 0 -> with glasses, 1 -> with no glasses
+                    bias_attr = torch.argmax(probs).item()
+                    bias_attributes.append(bias_attr)
+            
+        print('bias attributes', bias_attributes)
 
+        
+        print('conf shape',len(confidences))
         confidences = torch.cat(confidences, dim=0)
-        bias_attributes = torch.cat(bias_attributes, dim=0)
+        print('conf shape cat',len(confidences))
+        #bias_attributes = torch.cat(bias_attributes, dim=0)
 
         for target in targets:
             # find candidate with highest confidence for each target
@@ -104,7 +134,8 @@ def find_initial_w(generator,
             #while bias_counter < 0.5: # TODO import actual ratio
             
             # TODO implement CLIP check for bias attribute here as second point for choice
-            
+        
+
             # only keep images with bias attribute as long as ratio is not representative
             # if has attribute:
             #   bias_counter += 1
@@ -113,12 +144,12 @@ def find_initial_w(generator,
             #   sorted_idx.pop()
 
             # check for balance of bias attr in candidate selection
-            bias_counter = torch.sum(bias_attributes[sorted_idx[0]].unsqueeze(0))
+            #bias_counter = torch.sum(bias_attributes[sorted_idx[0]].unsqueeze(0))
 
-            diff = ratio*nr candidates per target - bias_counter
-            while diff > 0:
-                sorted_idx.pop()
-                sorted_conf.pop()
+            #diff = ratio*nr candidates per target - bias_counter
+            #while diff > 0:
+            #    sorted_idx.pop()
+            #    sorted_conf.pop()
 
             final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0)) #get image with hightes confidence
             final_confidences.append(sorted_conf[0].cpu().item())

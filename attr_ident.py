@@ -49,7 +49,12 @@ def main():
     print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
-    print(prompts)
+    
+    for prompt in prompts:
+        if not isinstance(prompt, list):
+            raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
+
+    
     
     # identifies hidden attribute in images, e.g. male and counts number of images with
     # the attribute for each class e.g. class 1 = blond hair, class2 = black hari
@@ -74,9 +79,9 @@ def load_clip():
 def get_images(run, image_location, G=None):
     #gets images from wandb attack run and stores them in media/images
     if (image_location == 'local'):
-        if os.path.exists("media/images"):
-            c = len([f for f in os.listdir("media/images")])
-            print('Found ', c, ' images in media/images')
+        if os.path.exists("media/test"):
+            c = len([f for f in os.listdir("media/test")])
+            print('Found ', c, ' images in media/test')
         else: 
             raise FileNotFoundError(f"The images are not found in media/images. Use wandb-weights instead")
         
@@ -135,9 +140,9 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
 
     # split image directory to group images by class 1 and class 2
-    all_img = sorted(os.listdir("media/images"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
+    all_img = sorted(os.listdir("media/test"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
     
-     # TODO Throw error if image is not in right format?
+    # TODO Throw error if image is not in right format?
 
 
     c1_img = all_img[:int(len(all_img)/2)]
@@ -146,9 +151,8 @@ def identify_attributes(prompts, clip_processor, clip_model):
     c2_img = all_img[int(len(all_img)/2):]
     c2_decisions = []
 
-
     for  i in c1_img:
-        image = Image.open("media/images/" +str(i)) 
+        image = Image.open("media/test/" +str(i)) 
 
         c1_all_probs = torch.tensor([])
         c1_decision = 0.0
@@ -168,7 +172,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
         
     for  i in c2_img:
-        image = Image.open("media/images/" +str(i)) 
+        image = Image.open("media/test/" +str(i)) 
         c2_all_probs = torch.tensor([])
         c2_decision = 0.0
     
@@ -185,8 +189,10 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c2_decision = 1 if torch.sum(torch.argmax(c2_all_probs, dim=1))/len(prompts) > 0.5 else 0
         c2_decisions.append(c2_decision) 
 
-        c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
-        c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
+    print('c1 dec', c1_decisions)
+    print('c2 dec', c2_decisions)
+    c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
+    c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
 
     return c1_attr_count, c2_attr_count
 
