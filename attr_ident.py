@@ -49,6 +49,10 @@ def main():
     #print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
+    for prompt in prompts:
+        if not isinstance(prompt, list):
+            raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
+
     print(prompts)
     
     # identifies hidden attribute in images, e.g. male and counts number of images with
