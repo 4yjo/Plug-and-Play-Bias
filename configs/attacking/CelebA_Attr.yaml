@@ -52,7 +52,7 @@ final_selection:
 
 
 wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
+  enable_logging: False # Activate logging.
   wandb_init_args: # WandB init arguments
     project: Test
     save_code: true
