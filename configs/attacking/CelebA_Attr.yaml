@@ -10,7 +10,7 @@ candidates:
     search_space_size: 100 #TODO set to 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
-    horizontal_flip: true # Flip the generated images horizontally in 50% of the cases.
+    horizontal_flip: false #TODO true # Flip the generated images horizontally in 50% of the cases.
     batch_size: 25 # Batch size during the sampling process (single GPU).
     truncation_psi: 0.5 # Truncation psi for StyleGAN.
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
