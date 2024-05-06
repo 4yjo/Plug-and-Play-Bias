@@ -7,9 +7,9 @@ dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_id
 prompt: ['a person with glasses', 'a person with no glasses'] #to identify biased attribute when balancing w in inital_selection
 
 candidates:
-  num_candidates: 20 #TODO default is 200 # Number of latent vectors to optimize for each target.
+  num_candidates: 200 # Number of latent vectors to optimize for each target.
   candidate_search:
-    search_space_size: 200 #TODO set to 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
+    search_space_size: 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
     horizontal_flip: false # Flip the generated images horizontally in 50% of the cases.

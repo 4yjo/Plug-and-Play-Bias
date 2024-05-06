@@ -144,11 +144,39 @@ def main():
     '''
     
 
-    #manipulate latent space to create balanced distribution of hidden attribute in w_init
+    # manipulate latent space to create balanced distribution of hidden attribute in w_init
 
     w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio,
                                              device)
     del G
+
+     # make local directory to store generated images
+    outdir = "media/images/test" 
+    os.makedirs(outdir, exist_ok=True)
+
+    # copy data to match dimensions
+    if w_init.shape[1] == 1:
+        w_init_expanded = torch.repeat_interleave(w_init,
+                                    repeats=synthesis.num_ws,
+                                    dim=1)
+    else: 
+        w_init_expanded = w_init
+
+    print(w_init_expanded.shape)
+    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
+
+    print(x.shape)
+    # crop and resize
+    x = F.resize(x, 224, antialias=True)
+    #x = F.center_crop(x, (800, 800)) #crop images
+    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print(x.shape)
+        
+    #save images
+    for i in range(x.shape[0]):
+        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    
+    print('images saved to ', str(outdir))
 
     # Initialize wandb logging
     if config.logging:
