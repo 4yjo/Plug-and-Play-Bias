@@ -85,6 +85,8 @@ def main():
     target_model = config.create_target_model(wandb_target_run)
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
+    num_cand = config.candidates['num_candidates'] 
+    prompt = config.prompt
 
     # Distribute models
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
@@ -101,12 +103,13 @@ def main():
     batch_size = config.attack['batch_size'] * torch.cuda.device_count()
     targets = config.create_target_vector()
 
-    # Create initial style vectors
+    '''
+    # Create initial style vectors (unbalanced)
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
 
-    # ---
+    
     # STEP 1 generate images from w to inspect with CLIP to make sure that initial vector space is balanced
      
     # make local directory to store generated images
@@ -138,17 +141,14 @@ def main():
     print('images saved to ', str(outdir))
 
     # aha results: e.g. for glasses 0.5 there are just 7/40 glasses
-
-    #? move attr_ident to attack.py as it is my new metric? 
-
-    # count images using clip (see notes in obsidian d)..)
-
-    #STEP 2 manipulate latent space to create balanced distribution of hidden attribute in w_init
-
+    '''
     
 
-    #---
+    #manipulate latent space to create balanced distribution of hidden attribute in w_init
 
+    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio,
+                                             device)
+    del G
 
     # Initialize wandb logging
     if config.logging:
@@ -586,6 +586,16 @@ def parse_arguments(parser):
 def create_initial_vectors(config, G, target_model, targets, device):
     with torch.no_grad():
         w = config.create_candidates(G, target_model, targets).cpu()
+        if config.attack['single_w']:
+            w = w[:, 0].unsqueeze(1)
+        w_init = deepcopy(w)
+        x = None
+        V = None
+    return w, w_init, x, V
+
+def create_bal_initial_vectors(config, G, target_model, targets, ratio, device):
+    with torch.no_grad():
+        w = config.create_bal_candidates(G, target_model, targets, ratio).cpu()
         if config.attack['single_w']:
             w = w[:, 0].unsqueeze(1)
         w_init = deepcopy(w)

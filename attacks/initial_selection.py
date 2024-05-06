@@ -10,9 +10,16 @@ import torchvision
 import os
 from PIL import Image
 
-def find_initial_w(generator,
+def find_initial_w():
+    #TODO put original code here
+    pass
+
+def find_bal_initial_w(generator,
                    target_model,
                    targets,
+                   ratio,
+                   num_cand,
+                   prompt,
                    search_space_size,
                    clip=True,
                    center_crop=768,
@@ -55,21 +62,23 @@ def find_initial_w(generator,
     clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    prompt = ['a person with glasses', 'a person with no glasses']
+    prompt = prompt
 
 
-    # TODO for testing only
-    outdir = "media/test" 
-    os.makedirs(outdir, exist_ok=True)
+    # for testing only
+    #outdir = "media/test" 
+    #os.makedirs(outdir, exist_ok=True)
 
-    outdir2 = "media/test2" 
-    os.makedirs(outdir2, exist_ok=True)
 
     with torch.no_grad():
         confidences = []
         bias_attributes = []
         final_candidates = []
         final_confidences = []
+
+        ratios = [ratio, 0.5]
+        nr_cand = num_cand 
+            
         candidates = generator.mapping(z,
                                        c,
                                        truncation_psi=truncation_psi,
@@ -91,42 +100,25 @@ def find_initial_w(generator,
                 imgs = F.center_crop(imgs, (center_crop, center_crop))
             if resize is not None:
                 imgs = [F.resize(imgs, resize, antialias=True)]
-            if horizontal_flip:
-                imgs.append(F.hflip(imgs[0])) # adds copy of horizontallly flipped images -> len(imgs) changes from 1 to 2 
+            #if horizontal_flip:
+                #imgs.append(F.hflip(imgs[0])) # adds copy of horizontallly flipped images but does not work for clip -> len(imgs) changes from 1 to 2 
             if five_crop:
                 cropped_images = []
                 for im in imgs:
                     cropped_images += list(F.five_crop(im))
                 imgs = cropped_images
 
-            #print('imgs len',len(imgs))
-            #print('imgs 0', len(imgs[0]))
-            #print('imgs 1', len(imgs[1]))
-            #print('imgs 0 shape', imgs[0].shape)
-      
-
-            #print(torch.equal(imgs[0],imgs[1])) -> not equal because flipped
 
             target_conf = None
-
-            ratio = 0.5  # TODO take from attack config
-            nr_cand = 20  # TODO take from attack config
-
-            # Calculate the number of candidates with bias and without bias
-            nr_with_bias = int(ratio * nr_cand)
-            nr_without_bias = nr_cand - nr_with_bias
             
             for im in imgs:
-                #print('im ', len(im))
+                # save images for testing
                 #torchvision.utils.save_image(im, f'media/test/{np.random.randint(100)}.png') #save image for testing
                 if target_conf is not None:
                     target_conf += target_model(im).softmax(dim=1) / len(imgs)
                 else:
                     target_conf = target_model(im).softmax(dim=1) / len(imgs)
             confidences.append(target_conf)
-            #print('len conf', len(confidences))
-            #print('shpae conf [0]', confidences[0].shape)
-            #print(confidences[0])
            
 
             bias_attr = []
@@ -134,7 +126,6 @@ def find_initial_w(generator,
                 for i in range(len(im)):
                     im[i] = (im[i] * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
 
-                    #TODO make this more elegant?
                     # match dimensions for CLIP processor
                     perm= im[i].permute(1, 2, 0) 
                     perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
@@ -164,9 +155,20 @@ def find_initial_w(generator,
         confidences = torch.cat(confidences, dim=0)
        
         bias_attributes = torch.cat(bias_attributes, dim=0)
-     
+
+        print('RATIOSS',ratios)
+        
 
         for target in targets:
+            print('target', target)
+            # define number of candidates holding bias attribute in each target
+            target_ratio = ratios[target]
+            print(target_ratio)
+
+            # define number of candidates holding bias attribute in each target
+            nr_with_bias = int(target_ratio * nr_cand)
+            nr_without_bias = nr_cand - nr_with_bias
+
             # find candidate with highest confidence for each target
             sorted_conf, sorted_idx = confidences[:,
                                                   target].sort(descending=True)
@@ -181,7 +183,9 @@ def find_initial_w(generator,
             idx_without = [idx for idx in sorted_idx if splitted_bias[idx] == 0][:nr_without_bias]
                     
             # check if with and without has correct length
-            #TODO
+            print(f' {len(idx_with)} initial style vectors with attribute.')
+            print(f' {len(idx_without)} initial style vectors without attribute.')
+            # TODO raise error if too few?
         
             # define final candidates
             idx_with.extend(idx_without)
@@ -192,8 +196,6 @@ def find_initial_w(generator,
             confidences[idx_with[0], target] = -1.0
 
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
-    print('final cand', final_candidates.shape)
-    print('final cand', final_candidates[0])
     
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
 

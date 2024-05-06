@@ -4,13 +4,15 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_identities, celeba_attr, stanford_dogs_cropped, stanford_dogs_uncropped].
 
+prompt: ['a person with glasses', 'a person with no glasses'] #to identify biased attribute when balancing w in inital_selection
+
 candidates:
   num_candidates: 20 #TODO default is 200 # Number of latent vectors to optimize for each target.
   candidate_search:
     search_space_size: 200 #TODO set to 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
-    horizontal_flip: false #TODO true # Flip the generated images horizontally in 50% of the cases.
+    horizontal_flip: false # Flip the generated images horizontally in 50% of the cases.
     batch_size: 25 # Batch size during the sampling process (single GPU).
     truncation_psi: 0.5 # Truncation psi for StyleGAN.
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
@@ -18,7 +20,7 @@ candidates:
 attack:
   batch_size: 25 # Batch size per GPU.
   num_epochs: 50  # Number of optimization iterations per batch.
-  targets: 0 # Specify the targeted classes, either a single class index, a list of indices, or all.
+  targets: 'all' # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].
