@@ -108,6 +108,13 @@ def find_initial_w(generator,
             #print(torch.equal(imgs[0],imgs[1])) -> not equal because flipped
 
             target_conf = None
+
+            ratio = 0.5  # TODO take from attack config
+            nr_cand = 20  # TODO take from attack config
+
+            # Calculate the number of candidates with bias and without bias
+            nr_with_bias = int(ratio * nr_cand)
+            nr_without_bias = nr_cand - nr_with_bias
             
             for im in imgs:
                 #print('im ', len(im))
@@ -123,7 +130,7 @@ def find_initial_w(generator,
            
 
             bias_attr = []
-            for im in imgs:
+            for im in imgs: 
                 for i in range(len(im)):
                     im[i] = (im[i] * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
 
@@ -151,108 +158,43 @@ def find_initial_w(generator,
 
                     bias_attr.append(probs)
             
-                
-            print('bias attr 1', len(bias_attr))
-
             bias_attr = torch.cat(bias_attr, dim=0)
-            print('bias attr 2', bias_attr.shape)
-            
             bias_attributes.append(bias_attr)
-            #bias_attr = torch.argmax(probs).item() # 0 -> with glasses, 1 -> with no glasses
         
-            
-        
-       
-        print('conf shape',len(confidences))
         confidences = torch.cat(confidences, dim=0)
-        print('conf shape cat',len(confidences))
-         #print('conf cat shape 0', confidences[0].shape)
-            
-        print('bias attr3 ', len(bias_attributes))
+       
         bias_attributes = torch.cat(bias_attributes, dim=0)
-        print('bias attr 3', len(bias_attributes))
-
-
-        print("BIAAS")
-        print(bias_attributes[:10])
-        
-
+     
 
         for target in targets:
-            print('TARGET X')
             # find candidate with highest confidence for each target
             sorted_conf, sorted_idx = confidences[:,
                                                   target].sort(descending=True)
-            
-            print('len sorted conf', len(sorted_conf)) # -> 100
 
+            # get if candidate has bias attribute or not for target
             splitted_bias = bias_attributes[:,target]
-            print('len splitted', len(splitted_bias))
-            print(splitted_bias.shape) #-> torch.Size([100])
 
-            c_bias_attr = []
-            c_no_bias_attr = []
+            # filter and append candidates with bias attr
+            idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 1][:nr_with_bias]
 
-            
-            for i in range(len(sorted_idx)):
-                if (splitted_bias[i].cpu().item() == 1):
-                    c_bias_attr.append(splitted_bias[sorted_idx])
-                else:
-                    c_no_bias_attr.append(splitted_bias[sorted_idx])
-            
-            print(c_bias_attr)
-            print(c_no_bias_attr)
-
-            # final idx
-            ratio = 0.5 # TODO Take ratio from attack file
-            c_bias_attr_cut = c_bias_attr[:(len(c_bias_attr)*ratio)]
-            c_no_bias_attr_cut = c_no_bias_attr[:(len(c_no_bias_attr)*(1-ratio))]
-
-            final_idx = c_bias_attr_cut.append(c_no_bias_attr_cut)
-            print(len(final_idx))
-
-
-
-            
-            
-
-           
-
-
-            #while bias_counter < 0.5: # TODO import actual ratio
-            
-            # TODO implement CLIP check for bias attribute here as second point for choice
+            # filter and append candidates without bias attr
+            idx_without = [idx for idx in sorted_idx if splitted_bias[idx] == 0][:nr_without_bias]
+                    
+            # check if with and without has correct length
+            #TODO
         
+            # define final candidates
+            idx_with.extend(idx_without)
 
-            # only keep images with bias attribute as long as ratio is not representative
-            # if has attribute:
-            #   bias_counter += 1
-            # else:
-            #   sorted_conf.pop()
-            #   sorted_idx.pop()
-
-            # check for balance of bias attr in candidate selection
-            #bias_counter = torch.sum(bias_attributes[sorted_idx[0]].unsqueeze(0))
-
-            #diff = ratio*nr candidates per target - bias_counter
-            #while diff > 0:
-            #    sorted_idx.pop()
-            #    sorted_conf.pop()
-
-            # TODO put back in if not kept above
-            final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0)) #get image with hightes confidence
-            final_confidences.append(sorted_conf[0].cpu().item())
+            final_candidates.append(candidates[idx_with[0]].unsqueeze(0)) #get image with hightes confidence
+            
             # Avoid identical candidates for the same target
-            confidences[sorted_idx[0], target] = -1.0
-
-    print('cand', candidates.shape)
+            confidences[idx_with[0], target] = -1.0
 
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
-    final_confidences = [np.round(c, 2) for c in final_confidences]
-
-    # TODO change selection process -> add CLIP evaluation for biased attribute
-
-
+    print('final cand', final_candidates.shape)
+    print('final cand', final_candidates[0])
+    
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
 
     if filepath:

@@ -110,7 +110,7 @@ def main():
     # STEP 1 generate images from w to inspect with CLIP to make sure that initial vector space is balanced
      
     # make local directory to store generated images
-    outdir = "initial_vectors/images" 
+    outdir = "_vectors/images" 
     os.makedirs(outdir, exist_ok=True)
 
     # copy data to match dimensions
