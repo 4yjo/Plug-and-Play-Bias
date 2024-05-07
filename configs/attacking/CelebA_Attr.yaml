@@ -7,7 +7,7 @@ dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_id
 prompt: ['a person with glasses', 'a person with no glasses'] #to identify biased attribute when balancing w in inital_selection
 
 candidates:
-  num_candidates: 200 # Number of latent vectors to optimize for each target.
+  num_candidates: 100 # Number of latent vectors to optimize for each target.
   candidate_search:
     search_space_size: 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
@@ -52,6 +52,9 @@ final_selection:
   approach: transforms # Currently only transforms is available as an option.
   iterations: 100   # Number of iterations random transformations are applied.
 
+rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
+  experiment_name: Attacking Target Model
+  name_initials: AM
 
 wandb: # Options for WandB logging.
   enable_logging: False # Activate logging.

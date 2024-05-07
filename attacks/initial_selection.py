@@ -74,10 +74,17 @@ def find_bal_initial_w(generator,
         confidences = []
         bias_attributes = []
         final_candidates = []
+        final_candidates_with = []
+        final_candidates_without = []
         final_confidences = []
+        
+        ratios = [ratio, 1-ratio]
+        numbers_per_target = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)]
+       
+        print(numbers_per_target)
 
-        ratios = [ratio, 0.5]
-        nr_cand = num_cand 
+        counter_with = [0,0] # TODO adjust depending on target len
+        counter_without = [0,0]
             
         candidates = generator.mapping(z,
                                        c,
@@ -155,47 +162,67 @@ def find_bal_initial_w(generator,
         confidences = torch.cat(confidences, dim=0)
        
         bias_attributes = torch.cat(bias_attributes, dim=0)
-
-        print('RATIOSS',ratios)
         
 
         for target in targets:
-            print('target', target)
-            # define number of candidates holding bias attribute in each target
-            target_ratio = ratios[target]
-            print(target_ratio)
-
-            # define number of candidates holding bias attribute in each target
-            nr_with_bias = int(target_ratio * nr_cand)
-            nr_without_bias = nr_cand - nr_with_bias
 
             # find candidate with highest confidence for each target
             sorted_conf, sorted_idx = confidences[:,
                                                   target].sort(descending=True)
-
+            
             # get if candidate has bias attribute or not for target
             splitted_bias = bias_attributes[:,target]
-
-            # filter and append candidates with bias attr
-            idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 1][:nr_with_bias]
-
-            # filter and append candidates without bias attr
-            idx_without = [idx for idx in sorted_idx if splitted_bias[idx] == 0][:nr_without_bias]
-                    
-            # check if with and without has correct length
-            print(f' {len(idx_with)} initial style vectors with attribute.')
-            print(f' {len(idx_without)} initial style vectors without attribute.')
-            # TODO raise error if too few?
-        
-            # define final candidates
-            idx_with.extend(idx_without)
-
-            final_candidates.append(candidates[idx_with[0]].unsqueeze(0)) #get image with hightes confidence
+            
+            # filter for bias attribute
+            if (splitted_bias[sorted_idx[0]] == 1): #& (counter_with[target] < numbers_per_target[target])): # has glasses
+                if(counter_with[target] < numbers_per_target[target]):
+                    final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
+                    counter_with[target]+=1 # TODO add target here
+            elif (splitted_bias[sorted_idx[0]] == 0): # & (counter_without[target] < numbers_per_target[target])):
+                if(counter_without[target] < numbers_per_target[target]):
+                    final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
+                    counter_without[target]+=1
             
             # Avoid identical candidates for the same target
-            confidences[idx_with[0], target] = -1.0
+            confidences[sorted_idx[0], target] = -1.0
+            
+                
+            '''
+            # filter and append candidates with bias attr
+            idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 0]#[:nr_with_bias]
+         
+            #idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 0][:2]
 
+            # filter and append candidates without bias attr
+            idx_without = [idx for idx in sorted_idx if splitted_bias[idx] == 1]#[:nr_without_bias]
+         
+
+            idx = idx_with
+            idx.extend(idx_without)
+    
+            # idx = torch.cat(idx, dim=0).to(device)
+
+            print('idx',idx[0])
+            #print('cand',candidates[idx[0]])
+            #print(candidates[idx[0]].unsqueeze(0))
+            
+            #final_candidates.append(candidates[idx_with[0]].unsqueeze(0)) #get image with hightes confidence and with attr
+            #final_candidates.append(candidates[idx_without[0]].unsqueeze(0))
+            final_candidates.append(candidates[idx[0]].unsqueeze(0))
+            print('len final cand', len(final_candidates))
+            '''
+        
+            
+        
+
+    # TODO idee: final candidates with and final candidates without und erst später cutten 
+    
+    print('c with', counter_with)
+    print('c without', counter_without)
+
+    print('len final cand', len(final_candidates))
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
+    print('final cand zero cat', final_candidates[0].shape)
     
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
 

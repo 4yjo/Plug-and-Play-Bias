@@ -145,9 +145,7 @@ def main():
     
 
     # manipulate latent space to create balanced distribution of hidden attribute in w_init
-
-    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio,
-                                             device)
+    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio, device)
     del G
 
      # make local directory to store generated images
