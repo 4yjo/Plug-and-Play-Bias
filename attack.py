@@ -148,9 +148,9 @@ def main():
     w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio, device)
     del G
 
-     # make local directory to store generated images
-    outdir = "media/images/test" 
-    os.makedirs(outdir, exist_ok=True)
+    # make local directory to store generated images
+    #outdir = "media/images/test" 
+    #os.makedirs(outdir, exist_ok=True)
 
     # copy data to match dimensions
     if w_init.shape[1] == 1:
@@ -171,10 +171,10 @@ def main():
     print(x.shape)
         
     #save images
-    for i in range(x.shape[0]):
-        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    #for i in range(x.shape[0]):
+    #    torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
     
-    print('images saved to ', str(outdir))
+    #print('images saved to ', str(outdir))
 
     # Initialize wandb logging
     if config.logging:
@@ -212,7 +212,7 @@ def main():
         init_w_path = f"results/init_w_{run_id}.pt"
         torch.save(w.detach(), init_w_path)
         wandb.save(init_w_path)
-'''
+
     # Create attack transformations
     attack_transformations = config.create_attack_transformations()
 
@@ -256,7 +256,7 @@ def main():
         torch.save(w_optimized_unselected.detach(), optimized_w_path)
         wandb.save(optimized_w_path)
 
-    # save images locally for clip evaluation
+
     
 
     ####################################
@@ -292,7 +292,7 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
- 
+    '''
 
     ####################################
     #         Attack Accuracy          #

@@ -74,14 +74,12 @@ def find_bal_initial_w(generator,
         confidences = []
         bias_attributes = []
         final_candidates = []
-        final_candidates_with = []
-        final_candidates_without = []
-        final_confidences = []
         
-        ratios = [ratio, 1-ratio]
-        numbers_per_target = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)]
-       
-        print(numbers_per_target)
+        ratios = [ratio, 0.5] # note: ratio for reference class (target'1') is always fixed
+        print(ratios)
+        nr_with = [int(ratios[0]*50),int(ratios[1]*50)] # note: takes less cand than defined in config in order to have more to chose from in inbalanced data
+        nr_without = [int((1-ratios[0])*50),int((1-ratios[1])*50)]
+        print(nr_with, nr_without)
 
         counter_with = [0,0] # TODO adjust depending on target len
         counter_without = [0,0]
@@ -175,9 +173,9 @@ def find_bal_initial_w(generator,
             
             # filter for bias attribute
             if (splitted_bias[sorted_idx[0]] == 1): #& (counter_with[target] < numbers_per_target[target])): # has glasses
-                if(counter_with[target] < numbers_per_target[target]):
+                if(counter_with[target] < nr_with[target]):
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
-                    counter_with[target]+=1 # TODO add target here
+                    counter_with[target]+=1
             elif (splitted_bias[sorted_idx[0]] == 0): # & (counter_without[target] < numbers_per_target[target])):
                 if(counter_without[target] < numbers_per_target[target]):
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
@@ -212,10 +210,7 @@ def find_bal_initial_w(generator,
             print('len final cand', len(final_candidates))
             '''
         
-            
         
-
-    # TODO idee: final candidates with and final candidates without und erst später cutten 
     
     print('c with', counter_with)
     print('c without', counter_without)
