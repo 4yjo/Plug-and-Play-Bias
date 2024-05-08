@@ -1,14 +1,14 @@
 ---
-wandb_attack_run: plugandplay/AttacksMouthopenGlasses/qgxgzxxa # WandB run id for attack that should be evaluated
+wandb_attack_run: plugandplay/AttacksHaircolorGender-Balanced/i5nrwdee # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42
 
-image_location: 'local' # 'local' if images already downloaded to media/images, 
+image_location: 'wandb-weights' # 'local' if images already downloaded to media/images, 
                                 # 'wandb-weights' to generate from weight vector if media is not stored on wandb
 
 
-prompts: [["a person with glasses", "a person with no glasses"]] # expects 2d array (also if only one prompt is provided)
+prompts: [["a man", "a woman"],["a boy", "a girl"],["a male face", "a female face"]] # expects 2d array (also if only one prompt is provided)
 
 rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
   experiment_name: Attribute identification
@@ -18,7 +18,7 @@ rtpt: # State RTPT details. It renames the process to show the remaining time an
 wandb: # Options for WandB logging.
   enable_logging: true # Activate logging. 
   wandb_init_args: # WandB init arguments.
-    project: Test
+    project: 
     save_code: true
     name: 
 

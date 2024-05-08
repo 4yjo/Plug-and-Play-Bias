@@ -149,8 +149,8 @@ def main():
     del G
 
     # make local directory to store generated images
-    #outdir = "media/images/test" 
-    #os.makedirs(outdir, exist_ok=True)
+    outdir = "media/initial_images" 
+    os.makedirs(outdir, exist_ok=True)
 
     # copy data to match dimensions
     if w_init.shape[1] == 1:
@@ -161,19 +161,18 @@ def main():
         w_init_expanded = w_init
 
     # create images from init vectors for testing
+    print(w_init_expanded.shape)
+    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
 
-    #print(w_init_expanded.shape)
-    #x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
-
-    #print(x.shape)
+    print(x.shape)
     # crop and resize
-    #x = F.resize(x, 224, antialias=True)
-    #x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
-    #print(x.shape)
+    x = F.resize(x, 224, antialias=True)
+    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print(x.shape)
         
-    #for i in range(x.shape[0]):
-    #    torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
-    #print('images saved to ', str(outdir))
+    for i in range(x.shape[0]):
+        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    print('images saved to ', str(outdir))
 
     # Initialize wandb logging
     if config.logging:
