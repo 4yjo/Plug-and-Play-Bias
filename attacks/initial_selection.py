@@ -57,34 +57,27 @@ def find_bal_initial_w(generator,
     target_model.eval()
     five_crop = None
 
-    # initialize CLIP #TODO put somewhere else later
-
+    # initialize CLIP 
     clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     prompt = prompt
 
-
-    # for testing only
-    #outdir = "media/test" 
-    #os.makedirs(outdir, exist_ok=True)
-
-
     with torch.no_grad():
         confidences = []
         bias_attributes = []
         final_candidates = []
-        
+
+        classes = np.arange(int(len(targets)/num_cand)) #define nr of classes to be used instead of targets
+        print('classes', classes)
         ratios = [ratio, 0.5] # note: ratio for reference class (target'1') is always fixed
-        print(ratios)
-        #nr_with = [int(ratios[0]*50),int(ratios[1]*50)] # note: takes less cand than defined in config in order to have more to chose from in inbalanced data
-        #nr_without = [int((1-ratios[0])*50),int((1-ratios[1])*50)]
+        print('ratios', ratios)
         nr_with = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)] 
         nr_without = [int((1-ratios[0])*num_cand),int((1-ratios[1])*num_cand)]
-        print(nr_with, nr_without)
+        print('counter', nr_with, nr_without)
 
-        counter_with = [0,0] # TODO adjust depending on target len
-        counter_without = [0,0]
+        counter_with = np.zeros(len(classes))
+        counter_without = np.zeros(len(classes))
             
         candidates = generator.mapping(z,
                                        c,
@@ -123,7 +116,6 @@ def find_bal_initial_w(generator,
                     target_conf += target_model(im).softmax(dim=1) / len(imgs)
                 else:
                     target_conf = target_model(im).softmax(dim=1) / len(imgs)
-            print(target_conf)
             confidences.append(target_conf)
            
 
@@ -150,88 +142,42 @@ def find_bal_initial_w(generator,
                     
                     outputs = clip_model(**inputs)
                     logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-                    #probs = torch.round(logits_per_image.softmax(dim=1)) 
-                    has_bias = torch.round(logits_per_image.softmax(dim=1))[0] # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
-                
-                    print('has_bias', has_bias)
-                    bias_attr.append(has_bias)
-            
-            #print('b1', bias_attr)
-            #bias_attr = torch.cat(bias_attr, dim=0)
-            print('b2', bias_attr)
-            bias_attributes.append(bias_attr)
+                    probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
         
-        print('b3', len(bias_attributes),  bias_attributes)
+                    bias_attr.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
+
+            bias_attributes.extend(bias_attr)
+      
     
         confidences = torch.cat(confidences, dim=0)
-        print('len conf', len(confidences))
-        print(confidences)
+      
 
-        bias_attributes = torch.cat(bias_attributes, dim=0)
-        print('b4', len(bias_attributes),bias_attributes)
-
-        
-
-        for target in targets:
-
+        for class_idx in classes:
             # find candidate with highest confidence for each target
             sorted_conf, sorted_idx = confidences[:,
-                                                  target].sort(descending=True)
-            
-            # get if candidate has bias attribute or not for target
-            #splitted_bias = bias_attributes[:,target]
-            print('has attr?', bias_attributes[sorted_idx[0]])
+                                                  class_idx].sort(descending=True)
+    
             # filter for bias attribute
-            if (bias_attributes[sorted_idx[0]] == 1): #& (counter_with[target] < numbers_per_target[target])): # has glasses
-                if(counter_with[target] < nr_with[target]):
+            for idx in sorted_idx: 
+                if (bias_attributes[sorted_idx[idx]] == 1) and (counter_with[class_idx] < nr_with[class_idx]): #& (counter_with[target] < numbers_per_target[target])): # has glasses
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
-                    counter_with[target]+=1
-            elif (bias_attributes[sorted_idx[0]] == 0): # & (counter_without[target] < numbers_per_target[target])):
-                if(counter_without[target] < nr_without[target]):
+                    # TODO add confidences?
+                    counter_with[class_idx]+=1
+                elif (bias_attributes[sorted_idx[0]] == 0) and (counter_without[class_idx] < nr_without[class_idx]): # & (counter_without[target] < numbers_per_target[target])):
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
-                    counter_without[target]+=1
-            
-            # Avoid identical candidates for the same target
-            confidences[sorted_idx[0], target] = -1.0
-            
+                    counter_without[class_idx]+=1
                 
-            '''
-            # filter and append candidates with bias attr
-            idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 0]#[:nr_with_bias]
-         
-            #idx_with=[idx for idx in sorted_idx if splitted_bias[idx] == 0][:2]
-
-            # filter and append candidates without bias attr
-            idx_without = [idx for idx in sorted_idx if splitted_bias[idx] == 1]#[:nr_without_bias]
-         
-
-            idx = idx_with
-            idx.extend(idx_without)
+       
     
-            # idx = torch.cat(idx, dim=0).to(device)
+    print('cand with bias attr', counter_with)
+    print('cand without bias attr', counter_without)
 
-            print('idx',idx[0])
-            #print('cand',candidates[idx[0]])
-            #print(candidates[idx[0]].unsqueeze(0))
-            
-            #final_candidates.append(candidates[idx_with[0]].unsqueeze(0)) #get image with hightes confidence and with attr
-            #final_candidates.append(candidates[idx_without[0]].unsqueeze(0))
-            final_candidates.append(candidates[idx[0]].unsqueeze(0))
-            print('len final cand', len(final_candidates))
-            '''
-        
-        
-    
-    print('c with', counter_with)
-    print('c without', counter_without)
-
-    print('len final cand', len(final_candidates))
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
-    print('final cand zero cat', final_candidates[0].shape)
+    
     
     # check if enough vectors have been found
-    if final_candidates.shape[0] < num_cand*len(targets):
-        raise RuntimeError('Too few initial vecotrs with bias attribute')
+    if final_candidates.shape[0] < len(targets):
+        raise ValueError('Too few initial vecotrs with bias attribute. Maximize search space or reduce num_cand')
 
 
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
