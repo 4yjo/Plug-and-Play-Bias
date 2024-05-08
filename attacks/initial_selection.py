@@ -77,8 +77,10 @@ def find_bal_initial_w(generator,
         
         ratios = [ratio, 0.5] # note: ratio for reference class (target'1') is always fixed
         print(ratios)
-        nr_with = [int(ratios[0]*50),int(ratios[1]*50)] # note: takes less cand than defined in config in order to have more to chose from in inbalanced data
-        nr_without = [int((1-ratios[0])*50),int((1-ratios[1])*50)]
+        #nr_with = [int(ratios[0]*50),int(ratios[1]*50)] # note: takes less cand than defined in config in order to have more to chose from in inbalanced data
+        #nr_without = [int((1-ratios[0])*50),int((1-ratios[1])*50)]
+        nr_with = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)] 
+        nr_without = [int((1-ratios[0])*num_cand),int((1-ratios[1])*num_cand)]
         print(nr_with, nr_without)
 
         counter_with = [0,0] # TODO adjust depending on target len
@@ -117,12 +119,11 @@ def find_bal_initial_w(generator,
             target_conf = None
             
             for im in imgs:
-                # save images for testing
-                #torchvision.utils.save_image(im, f'media/test/{np.random.randint(100)}.png') #save image for testing
                 if target_conf is not None:
                     target_conf += target_model(im).softmax(dim=1) / len(imgs)
                 else:
                     target_conf = target_model(im).softmax(dim=1) / len(imgs)
+            print(target_conf)
             confidences.append(target_conf)
            
 
@@ -149,17 +150,26 @@ def find_bal_initial_w(generator,
                     
                     outputs = clip_model(**inputs)
                     logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-                    probs = torch.round(logits_per_image.softmax(dim=1)) 
+                    #probs = torch.round(logits_per_image.softmax(dim=1)) 
+                    has_bias = torch.round(logits_per_image.softmax(dim=1))[0] # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
                 
-
-                    bias_attr.append(probs)
+                    print('has_bias', has_bias)
+                    bias_attr.append(has_bias)
             
-            bias_attr = torch.cat(bias_attr, dim=0)
+            #print('b1', bias_attr)
+            #bias_attr = torch.cat(bias_attr, dim=0)
+            print('b2', bias_attr)
             bias_attributes.append(bias_attr)
         
+        print('b3', len(bias_attributes),  bias_attributes)
+    
         confidences = torch.cat(confidences, dim=0)
-       
+        print('len conf', len(confidences))
+        print(confidences)
+
         bias_attributes = torch.cat(bias_attributes, dim=0)
+        print('b4', len(bias_attributes),bias_attributes)
+
         
 
         for target in targets:
@@ -169,15 +179,15 @@ def find_bal_initial_w(generator,
                                                   target].sort(descending=True)
             
             # get if candidate has bias attribute or not for target
-            splitted_bias = bias_attributes[:,target]
-            
+            #splitted_bias = bias_attributes[:,target]
+            print('has attr?', bias_attributes[sorted_idx[0]])
             # filter for bias attribute
-            if (splitted_bias[sorted_idx[0]] == 1): #& (counter_with[target] < numbers_per_target[target])): # has glasses
+            if (bias_attributes[sorted_idx[0]] == 1): #& (counter_with[target] < numbers_per_target[target])): # has glasses
                 if(counter_with[target] < nr_with[target]):
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
                     counter_with[target]+=1
-            elif (splitted_bias[sorted_idx[0]] == 0): # & (counter_without[target] < numbers_per_target[target])):
-                if(counter_without[target] < numbers_per_target[target]):
+            elif (bias_attributes[sorted_idx[0]] == 0): # & (counter_without[target] < numbers_per_target[target])):
+                if(counter_without[target] < nr_without[target]):
                     final_candidates.append(candidates[sorted_idx[0]].unsqueeze(0))
                     counter_without[target]+=1
             
@@ -219,6 +229,11 @@ def find_bal_initial_w(generator,
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
     print('final cand zero cat', final_candidates[0].shape)
     
+    # check if enough vectors have been found
+    if final_candidates.shape[0] < num_cand*len(targets):
+        raise RuntimeError('Too few initial vecotrs with bias attribute')
+
+
     print(f'Found {final_candidates.shape[0]} initial style vectors.')
 
     if filepath:

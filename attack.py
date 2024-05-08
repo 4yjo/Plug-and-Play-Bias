@@ -160,20 +160,19 @@ def main():
     else: 
         w_init_expanded = w_init
 
-    print(w_init_expanded.shape)
-    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
+    # create images from init vectors for testing
 
-    print(x.shape)
+    #print(w_init_expanded.shape)
+    #x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
+
+    #print(x.shape)
     # crop and resize
-    x = F.resize(x, 224, antialias=True)
-    #x = F.center_crop(x, (800, 800)) #crop images
-    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
-    print(x.shape)
+    #x = F.resize(x, 224, antialias=True)
+    #x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    #print(x.shape)
         
-    #save images
     #for i in range(x.shape[0]):
     #    torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
-    
     #print('images saved to ', str(outdir))
 
     # Initialize wandb logging
