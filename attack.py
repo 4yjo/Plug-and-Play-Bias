@@ -126,7 +126,7 @@ def main():
     del G
 
     # save vector as images for visualization
-    save_as_img(w_init, synthesis)
+    #save_as_img(w_init, synthesis, 'media/images')
 
     # Initialize wandb logging
     if config.logging:
@@ -235,6 +235,7 @@ def main():
             rtpt=rtpt)
         print(f'Selected a total of {final_w.shape[0]} final images ',
               f'of target classes {set(final_targets.cpu().tolist())}.')
+
     else:
         final_targets, final_w = targets, w_optimized_unselected
     del target_model
@@ -254,43 +255,64 @@ def main():
     ####################################
 
     # Count number of images in attack results that hold bias attribute 
+    classes = np.arange(int(len(targets)/num_cand))  #define nr of classes to be used instead of targets
+    print('classes', classes)
 
-    imgs = synthesis(final_w[0],noise_mode='const',force_fp32=True)
-
-    for im in imgs: 
-        for i in range(len(im)):
-            # maps from [-1,1] to [0,1]
-            im[i] = (im[i] * 0.5 + 128 / 224).clamp(0, 1)
-
-            # match dimensions for CLIP processor
-            perm = im[i].permute(1, 2, 0) 
-            perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
-
-            inputs = clip_processor(text=['a man', 'a woman'], images=perm_rescale, return_tensors="pt", padding=True)
-                    
-            outputs = clip_model(**inputs)
-            logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-            probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
-        
-            #bias_attr.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
-
-    #bias_attributes.extend(bias_attr)
-   
-   # TODO count per class
+    counter = []
 
     
+    # copy data to match dimensions
+    if final_w.shape[1] == 1:
+        final_w_expanded = torch.repeat_interleave(final_w,repeats=synthesis.num_ws,
+                                                    dim=1)
+    else: 
+        final_w_expanded = w
+    
+    imgs = synthesis(final_w_expanded,noise_mode='const',force_fp32=True)
+    print('imgs shape',imgs.shape)
 
-    print(f'Identified as {prompt[0][0]} in Class 1: ')
-    print(f'Identified as {prompt[0][0]} in Class 1: ')
+     # crop and resize
+    imgs = F.resize(imgs, 224, antialias=True)
+    print('imgs shape resize', imgs.shape)
+
+    # TODO use tensors instead?
+
+
+    for i in range(imgs.shape[0]):
+        # maps from [-1,1] to [0,1]
+        imgs[i] = (imgs[i] * 0.5 + 128 / 224).clamp(0, 1)
+
+        # match dimensions for CLIP processor
+        perm = imgs[i].permute(1, 2, 0) 
+        perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
+
+        inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
+                    
+        outputs = clip_model(**inputs)
+        logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+        probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
+        
+        counter.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
+
+    print('counter', len(counter), counter)
+
+   
+    # count per class
+    split_idx = int(len(counter)/2)  # note: only for 2 classes
+    counter_class_1 = np.sum(counter[:split_idx])/num_cand
+    counter_class_2 = np.sum(counter[split_idx:])/num_cand
+    
+
+    print(f'Identified as {prompt[0]} in Class 1: {counter_class_1}')
+    print(f'Identified as {prompt[0]} in Class 2: {counter_class_2}')
 
     # add results to wandb attack run logs
-    #run.summary["c1_male"] = c1_attr_count
-    #run.summary["c2_male"] = c2_attr_count
-    #run.summary.update()
-    #run.config['prompts'] = config.prompts
-    #run.update()
+    wandb.summary.update({f'{prompt[0]} in Class 1': counter_class_1})
+    wandb.summary.update({f'{prompt[0]} in Class 2': counter_class_2})
+    
+    wandb.config.update({'prompts': prompt})
 
-
+    # TODO images
     '''
 
     ####################################
@@ -618,9 +640,9 @@ def create_initial_vectors(config, G, target_model, targets, device):
         V = None
     return w, w_init, x, V
 
-def create_bal_initial_vectors(config, G, target_model, targets, ratio, device):
+def create_bal_initial_vectors(config, G, target_model, targets, device):
     with torch.no_grad():
-        w = config.create_bal_candidates(G, target_model, targets, ratio).cpu()
+        w = config.create_bal_candidates(G, target_model, targets).cpu()
         if config.attack['single_w']:
             w = w[:, 0].unsqueeze(1)
         w_init = deepcopy(w)
@@ -680,7 +702,7 @@ def save_as_img(vector, synthesis, outdir=None):
     # copy data to match dimensions
     if vector.shape[1] == 1:
         vector_expanded = torch.repeat_interleave(vector,
-                                    repeats=vector.num_ws,
+                                    repeats=synthesis.num_ws,
                                     dim=1)
     else: 
         vector_expanded = vector
@@ -758,15 +780,14 @@ def log_final_images(imgs, predictions, max_confidences, target_confidences,
    
     wand_imgs = [
         wandb.Image(
-            img.permute(1, 2, 0).numpy()) for img in zip(imgs.cpu())
+            img.permute(1, 2, 0).numpy(),
+            caption=
+            f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
+        ) for img, pred, max_conf, target_conf in zip(
+            imgs.cpu(), predictions, max_confidences, target_confidences)
     ]
     wandb.log({'final_images': wand_imgs})
 
-
-    examples = []
-for i in range(3):
-    pixels = np.random.randint(low=0, high=256, size=(100, 100, 3))
-    image = wandb.Image(pixels, caption=f"random field {i}")
 
 
 
