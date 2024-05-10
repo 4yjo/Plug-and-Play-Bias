@@ -113,7 +113,6 @@ def find_initial_w(generator,
 def find_bal_initial_w(generator,
                    target_model,
                    targets,
-                   ratio,
                    num_cand,
                    prompt,
                    search_space_size,
@@ -166,11 +165,9 @@ def find_bal_initial_w(generator,
 
         classes = np.arange(int(len(targets)/num_cand)) #define nr of classes to be used instead of targets
         print('classes', classes)
-        ratios = [ratio, 0.5] # note: ratio for reference class (target'1') is always fixed
-        print('ratios', ratios)
+        ratios = [0.5, 0.5] 
         nr_with = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)] 
         nr_without = [int((1-ratios[0])*num_cand),int((1-ratios[1])*num_cand)]
-        print('counter', nr_with, nr_without)
 
         counter_with = np.zeros(len(classes))
         counter_without = np.zeros(len(classes))

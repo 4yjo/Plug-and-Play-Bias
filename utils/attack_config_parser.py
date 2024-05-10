@@ -123,7 +123,7 @@ class AttackConfigParser:
         w = w.to(device)
         return w
     
-    def create_bal_candidates(self, generator, target_model, targets, ratio):
+    def create_bal_candidates(self, generator, target_model, targets):
         candidate_config = self._config['candidates']
         num_cand = self._config['candidates']['num_candidates']
         prompt = self._config['prompt']
@@ -133,7 +133,6 @@ class AttackConfigParser:
             w = find_bal_initial_w(generator=generator,
                                target_model=target_model,
                                targets=targets,
-                               ratio=ratio,
                                num_cand = num_cand,
                                prompt = prompt,
                                seed=self.seed,

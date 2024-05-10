@@ -18,6 +18,10 @@ import os
 
 
 def main():
+    """Use to inspect images or vectors from former wandb runs.
+    Evaluation during attack is already implemented in attack.py"""
+
+
     # Define and parse attack arguments
     parser = create_parser()
     config, args = parse_arguments(parser)
@@ -56,8 +60,8 @@ def main():
 
     
     
-    # identifies hidden attribute in images, e.g. male and counts number of images with
-    # the attribute for each class e.g. class 1 = blond hair, class2 = black hari
+    # identifies bias attribute in images, e.g. male and counts number of images with
+    # the attribute for each class e.g. class 1 = blond hair, class2 = black hair
     c1_attr_count, c2_attr_count = identify_attributes(prompts, clip_processor, clip_model)
 
     print("identified as male in class 1: ", c1_attr_count)
@@ -142,9 +146,6 @@ def identify_attributes(prompts, clip_processor, clip_model):
     # split image directory to group images by class 1 and class 2
     all_img = sorted(os.listdir("media/images"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
     
-    # TODO Throw error if image is not in right format?
-
-
     c1_img = all_img[:int(len(all_img)/2)]
     c1_decisions = []
 

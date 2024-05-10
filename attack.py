@@ -31,6 +31,8 @@ import os
 import torchvision
 import torchvision.transforms.functional as F
 
+from transformers import CLIPProcessor, CLIPModel
+
 
 def main():
     ####################################
@@ -88,6 +90,12 @@ def main():
     num_cand = config.candidates['num_candidates'] 
     prompt = config.prompt
 
+    # TODO 
+   # for prompt in prompts:
+    #    if not isinstance(prompt, list):
+     #       raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
+
+
     # Distribute models
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
     target_model.name = target_model_name
@@ -95,7 +103,7 @@ def main():
     synthesis.num_ws = num_ws
     discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
 
-    synthesis.eval() #TODO double-check if this is okay here
+    synthesis.eval() 
 
     # Load basic attack parameters
     num_epochs = config.attack['num_epochs']
@@ -109,70 +117,16 @@ def main():
                                              device)
     del G
 
-    
-    # STEP 1 generate images from w to inspect with CLIP to make sure that initial vector space is balanced
-     
-    # make local directory to store generated images
-    outdir = "_vectors/images" 
-    os.makedirs(outdir, exist_ok=True)
-
-    # copy data to match dimensions
-    if w_init.shape[1] == 1:
-        w_init_expanded = torch.repeat_interleave(w_init,
-                                    repeats=synthesis.num_ws,
-                                    dim=1)
-    else: 
-        w_init_expanded = w_init
-
-    print(w_init_expanded.shape)
-    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
-
-    print(x.shape)
-    # crop and resize
-    x = F.resize(x, 224, antialias=True)
-    #x = F.center_crop(x, (800, 800)) #crop images
-    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
-    print(x.shape)
-        
-    #save images
-    for i in range(x.shape[0]):
-        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
-    
-    print('images saved to ', str(outdir))
-
-    # aha results: e.g. for glasses 0.5 there are just 7/40 glasses
+    save_as_image(w_init, synthesis)
     '''
     
 
-    # manipulate latent space to create balanced distribution of hidden attribute in w_init
-    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, ratio, device)
+    # Create balanced distribution of bias attribute in latent space
+    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, device)
     del G
 
-    # make local directory to store generated images
-    outdir = "media/initial_images" 
-    os.makedirs(outdir, exist_ok=True)
-
-    # copy data to match dimensions
-    if w_init.shape[1] == 1:
-        w_init_expanded = torch.repeat_interleave(w_init,
-                                    repeats=synthesis.num_ws,
-                                    dim=1)
-    else: 
-        w_init_expanded = w_init
-
-    # create images from init vectors for testing
-    print(w_init_expanded.shape)
-    x = synthesis(w_init_expanded, noise_mode='const', force_fp32=True)
-
-    print(x.shape)
-    # crop and resize
-    x = F.resize(x, 224, antialias=True)
-    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
-    print(x.shape)
-        
-    for i in range(x.shape[0]):
-        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
-    print('images saved to ', str(outdir))
+    # save vector as images for visualization
+    save_as_img(w_init, synthesis)
 
     # Initialize wandb logging
     if config.logging:
@@ -203,6 +157,10 @@ def main():
                     experiment_name='Model_Inversion_Attack',
                     max_iterations=max_iterations)
         rtpt.start()
+
+    # Load pretrained CLIP 
+    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     # Log initial vectors
     if config.logging:
@@ -253,8 +211,6 @@ def main():
         optimized_w_path = f"results/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected.detach(), optimized_w_path)
         wandb.save(optimized_w_path)
-
-
     
 
     ####################################
@@ -289,6 +245,51 @@ def main():
         torch.save(final_w.detach(), optimized_w_path_selected)
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
+
+    # TODO Log images
+
+
+    ####################################
+    #  Attack Evaluation for Bias      #
+    ####################################
+
+    # Count number of images in attack results that hold bias attribute 
+
+    imgs = synthesis(final_w[0],noise_mode='const',force_fp32=True)
+
+    for im in imgs: 
+        for i in range(len(im)):
+            # maps from [-1,1] to [0,1]
+            im[i] = (im[i] * 0.5 + 128 / 224).clamp(0, 1)
+
+            # match dimensions for CLIP processor
+            perm = im[i].permute(1, 2, 0) 
+            perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
+
+            inputs = clip_processor(text=['a man', 'a woman'], images=perm_rescale, return_tensors="pt", padding=True)
+                    
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+            probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
+        
+            #bias_attr.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
+
+    #bias_attributes.extend(bias_attr)
+   
+   # TODO count per class
+
+    
+
+    print(f'Identified as {prompt[0][0]} in Class 1: ')
+    print(f'Identified as {prompt[0][0]} in Class 1: ')
+
+    # add results to wandb attack run logs
+    #run.summary["c1_male"] = c1_attr_count
+    #run.summary["c2_male"] = c2_attr_count
+    #run.summary.update()
+    #run.config['prompts'] = config.prompts
+    #run.update()
+
 
     '''
 
@@ -668,6 +669,35 @@ def log_attack_progress(loss,
             'mean_conf': mean_conf,
             'learning_rate': lr
         })
+
+def save_as_img(vector, synthesis, outdir=None):
+    # make local directory to store generated images
+    if outdir is not None:
+        os.makedirs(outdir)
+    else: 
+        os.makedirs('media/images/results')
+
+    # copy data to match dimensions
+    if vector.shape[1] == 1:
+        vector_expanded = torch.repeat_interleave(vector,
+                                    repeats=vector.num_ws,
+                                    dim=1)
+    else: 
+        vector_expanded = vector
+
+    # create images from init vectors for testing
+    print(vector_expanded.shape)
+    x = synthesis(vector_expanded, noise_mode='const', force_fp32=True)
+
+    print(x.shape)
+    # crop and resize
+    x = F.resize(x, 224, antialias=True)
+    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print(x.shape)
+        
+    for i in range(x.shape[0]):
+        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    print('images saved to ', str(outdir))
 
 
 def init_wandb_logging(optimizer, target_model_name, config, args):
