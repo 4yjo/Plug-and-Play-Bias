@@ -4,7 +4,7 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_identities, celeba_attr, stanford_dogs_cropped, stanford_dogs_uncropped].
 
-prompt: ['a man', 'a woman'] #to identify biased attribute when balancing w in inital_selection
+prompts: [["a man", "a woman"],["a boy", "a girl"],["a male face", "a female face"]] #to identify biased attribute when balancing w in inital_selection and for evaluation of final results
 
 candidates:
   num_candidates: 10 #TODO 50 # Number of latent vectors to optimize for each target.

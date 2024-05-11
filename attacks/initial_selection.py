@@ -114,7 +114,7 @@ def find_bal_initial_w(generator,
                    target_model,
                    targets,
                    num_cand,
-                   prompt,
+                   prompts,
                    search_space_size,
                    clip=True,
                    center_crop=768,
@@ -156,7 +156,7 @@ def find_bal_initial_w(generator,
     clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    prompt = prompt
+    prompt = prompts[0]
 
     with torch.no_grad():
         confidences = []
@@ -164,7 +164,6 @@ def find_bal_initial_w(generator,
         final_candidates = []
 
         classes = np.arange(int(len(targets)/num_cand)) #define nr of classes to be used instead of targets
-        print('classes', classes)
         ratios = [0.5, 0.5] 
         nr_with = [int(ratios[0]*num_cand),int(ratios[1]*num_cand)] 
         nr_without = [int((1-ratios[0])*num_cand),int((1-ratios[1])*num_cand)]
@@ -254,7 +253,6 @@ def find_bal_initial_w(generator,
             for idx in sorted_idx: 
                 if (bias_attributes[sorted_idx[idx]] == 1) and (counter_with[class_idx] < nr_with[class_idx]): #& (counter_with[target] < numbers_per_target[target])): # has glasses
                     final_candidates.append(candidates[sorted_idx[idx]].unsqueeze(0))
-                    # TODO add confidences?
                     counter_with[class_idx]+=1
                 elif (bias_attributes[sorted_idx[idx]] == 0) and (counter_without[class_idx] < nr_without[class_idx]): # & (counter_without[target] < numbers_per_target[target])):
                     final_candidates.append(candidates[sorted_idx[idx]].unsqueeze(0))
@@ -262,8 +260,8 @@ def find_bal_initial_w(generator,
             
        
     
-    print('cand with bias attr', counter_with)
-    print('cand without bias attr', counter_without)
+    print(f'{counter_with[0]} candidades with bias attr in class1;{counter_with[1]} in class 2')
+    print(f'{counter_without[0]} candidades without bias attr in class1;{counter_without[1]} in class 2')
 
     final_candidates = torch.cat(final_candidates, dim=0).to(device)
     

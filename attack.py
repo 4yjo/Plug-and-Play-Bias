@@ -88,12 +88,12 @@ def main():
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
     num_cand = config.candidates['num_candidates'] 
-    prompt = config.prompt
+    prompts = config.prompts
 
     # TODO 
-   # for prompt in prompts:
-    #    if not isinstance(prompt, list):
-     #       raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
+    for prompt in prompts:
+        if not isinstance(prompt, list):
+            raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
 
 
     # Distribute models
@@ -276,6 +276,8 @@ def main():
     imgs = F.resize(imgs, 224, antialias=True)
 
     for i in range(imgs.shape[0]):
+        all_probs = torch.tensor([])
+
         # maps from [-1,1] to [0,1]
         imgs[i] = (imgs[i] * 0.5 + 128 / 224).clamp(0, 1)
 
@@ -283,12 +285,18 @@ def main():
         perm = imgs[i].permute(1, 2, 0) 
         perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
 
-        inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
-        outputs = clip_model(**inputs)
-        logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-        probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
-            
-        counter.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
+        # majority vote 
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+            #probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
+            probs = logits_per_image.softmax(dim=1)
+            all_probs = torch.cat((all_probs, probs),0)
+        
+        dec = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+          
+        counter.append(dec)
 
         # save first 10 images of each class to wandb
         cpu_image = perm_rescale.detach().cpu().numpy()

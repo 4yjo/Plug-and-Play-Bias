@@ -126,7 +126,7 @@ class AttackConfigParser:
     def create_bal_candidates(self, generator, target_model, targets):
         candidate_config = self._config['candidates']
         num_cand = self._config['candidates']['num_candidates']
-        prompt = self._config['prompt']
+        prompts = self._config['prompts']
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if 'candidate_search' in candidate_config:
             search_config = candidate_config['candidate_search']
@@ -134,7 +134,7 @@ class AttackConfigParser:
                                target_model=target_model,
                                targets=targets,
                                num_cand = num_cand,
-                               prompt = prompt,
+                               prompts = prompts,
                                seed=self.seed,
                                **search_config)
             print(f'Created {w.shape[0]} candidates randomly in w space.')
@@ -207,8 +207,8 @@ class AttackConfigParser:
         return self._config['candidates']
     
     @property
-    def prompt(self):
-        return self._config['prompt']
+    def prompts(self):
+        return self._config['prompts']
 
     @property
     def wandb_target_run(self):
