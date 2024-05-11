@@ -247,7 +247,7 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
-    # TODO Log images
+   
 
 
     ####################################
@@ -259,7 +259,8 @@ def main():
     print('classes', classes)
 
     counter = []
-
+    log_imgs_class_1=[]
+    log_imgs_class_2=[]
     
     # copy data to match dimensions
     if final_w.shape[1] == 1:
@@ -268,15 +269,11 @@ def main():
     else: 
         final_w_expanded = w
     
+    # create images for CLIP evaluation
     imgs = synthesis(final_w_expanded,noise_mode='const',force_fp32=True)
-    print('imgs shape',imgs.shape)
 
-     # crop and resize
+    # crop and resize
     imgs = F.resize(imgs, 224, antialias=True)
-    print('imgs shape resize', imgs.shape)
-
-    # TODO use tensors instead?
-
 
     for i in range(imgs.shape[0]):
         # maps from [-1,1] to [0,1]
@@ -287,22 +284,30 @@ def main():
         perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
 
         inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
-                    
         outputs = clip_model(**inputs)
         logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
         probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
-        
+            
         counter.append(probs[0].item()) # 1 if has attribute described by prompt with idx 0 (eg. male) - 0 if not
 
-    print('counter', len(counter), counter)
+        # save first 10 images of each class to wandb
+        cpu_image = perm_rescale.detach().cpu().numpy()
+        if i < 10:
+            wand_img = wandb.Image(cpu_image, caption=f'class 1')
+            log_imgs_class_1.append(wand_img)
 
+        if (i >= num_cand ) and (i < num_cand+10):
+            wand_img = wandb.Image(cpu_image, caption=f'class 2')
+            log_imgs_class_2.append(wand_img)
+
+    wandb.log({'class 1': log_imgs_class_1})
+    wandb.log({'class 2': log_imgs_class_2})
    
     # count per class
     split_idx = int(len(counter)/2)  # note: only for 2 classes
     counter_class_1 = np.sum(counter[:split_idx])/num_cand
     counter_class_2 = np.sum(counter[split_idx:])/num_cand
     
-
     print(f'Identified as {prompt[0]} in Class 1: {counter_class_1}')
     print(f'Identified as {prompt[0]} in Class 2: {counter_class_2}')
 
@@ -312,7 +317,6 @@ def main():
     
     wandb.config.update({'prompts': prompt})
 
-    # TODO images
     '''
 
     ####################################
@@ -508,95 +512,9 @@ def main():
             print('Mean Distance on FaceNet: ', avg_dist_facenet.cpu().item())
     except Exception:
         print(traceback.format_exc())
-    
-    ####################################
-    #          Finish Logging          #
-    ####################################
-
-    if rtpt:
-        rtpt.step(subtitle=f'Finishing up')
-
-    # Logging of final results
-    if config.logging:
-        print('Finishing attack, logging results and creating sample images.')
-        num_classes = 10
-        num_imgs = 8
-        # Sample final images from the first and last classes
-        label_subset = set(
-            list(set(targets.tolist()))[:int(num_classes / 2)] +
-            list(set(targets.tolist()))[-int(num_classes / 2):])
-        log_imgs = []
-        log_targets = []
-        log_predictions = []
-        log_max_confidences = []
-        log_target_confidences = []
-        
-        # Log images with smallest feature distance
-        for label in label_subset:
-            mask = torch.where(final_targets == label, True, False)
-            w_masked = final_w[mask][:num_imgs]
-            imgs = create_image(w_masked,
-                                synthesis,
-                                crop_size=config.attack_center_crop,
-                                resize=config.attack_resize)
-            log_imgs.append(imgs)
-            log_targets += [label for i in range(num_imgs)]
-            #log_predictions.append(torch.tensor(predictions)[mask][:num_imgs])
-            #log_max_confidences.append(
-            #    torch.tensor(maximum_confidences)[mask][:num_imgs])
-            #log_target_confidences.append(
-            #    torch.tensor(target_confidences)[mask][:num_imgs])
-
-        log_imgs = torch.cat(log_imgs, dim=0)
-        #log_predictions = torch.cat(log_predictions, dim=0)
-        #log_max_confidences = torch.cat(log_max_confidences, dim=0)
-        #log_target_confidences = torch.cat(log_target_confidences, dim=0)
-
-        log_final_images(log_imgs, log_predictions, log_max_confidences,
-                         log_target_confidences, idx_to_class)
-
-        
-        # Find closest training samples to final results
-        log_nearest_neighbors(log_imgs,
-                              log_targets,
-                              evaluation_model_dist,
-                              'InceptionV3',
-                              target_dataset,
-                              img_size=299,
-                              seed=config.seed,
-                              attributes=attributes,
-                              hidden_attributes=hidden_attributes,
-                              ratio=ratio)
-
-        # Use FaceNet only for facial images
-        facenet = InceptionResnetV1(pretrained='vggface2')
-        facenet = torch.nn.DataParallel(facenet, device_ids=gpu_devices)
-        facenet.to(device)
-        facenet.eval()
-        if target_dataset in [
-                'facescrub', 'celeba_identities', 'celeba_attributes'
-        ]:
-            log_nearest_neighbors(log_imgs,
-                                  log_targets,
-                                  facenet,
-                                  'FaceNet',
-                                  target_dataset,
-                                  img_size=160,
-                                  seed=config.seed,
-                                  attributes=attributes,
-                                  hidden_attributes=hidden_attributes,
-                                  ratio=ratio)
-
-        # Final logging
-        #final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-        #                    acc_top5, avg_dist_facenet, avg_dist_inception,
-        #                    fid_score, precision, recall, density, coverage)
-        
-        # Final logging
-        final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-                            avg_dist_facenet, avg_dist_inception,
-                            fid_score, precision, recall, density, coverage)
     '''
+    
+
 
 def create_parser():
     parser = argparse.ArgumentParser(
@@ -775,17 +693,19 @@ def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
     wandb.log({f'closest_samples {model_name}': closest_samples})
 
 
-def log_final_images(imgs, predictions, max_confidences, target_confidences,
+def log_final_images(imgs, targets,predictions, max_confidences, target_confidences,
                      idx2cls):
    
     wand_imgs = [
         wandb.Image(
             img.permute(1, 2, 0).numpy(),
             caption=
-            f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
-        ) for img, pred, max_conf, target_conf in zip(
-            imgs.cpu(), predictions, max_confidences, target_confidences)
+            f'class: {targets}'
+            #f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
+        ) for img, target, pred, max_conf, target_conf in zip(
+            imgs.cpu(), targets, predictions, max_confidences, target_confidences)
     ]
+    print('wandb imgs', wand_imgs)
     wandb.log({'final_images': wand_imgs})
 
 
