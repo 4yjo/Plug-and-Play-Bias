@@ -90,7 +90,6 @@ def main():
     num_cand = config.candidates['num_candidates'] 
     prompts = config.prompts
 
-    # TODO 
     for prompt in prompts:
         if not isinstance(prompt, list):
             raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
@@ -446,8 +445,7 @@ def main():
                     num_workers=8,
                     gpu_devices=gpu_devices)
         precision, recall, density, coverage = prdc.compute_metric(
-            num_classes=config.num_classes, k=1, rtpt=rtpt)  #TODO put k=3 if more than 2 classes
-        print(
+            num_classes=config.num_classes, k=3, rtpt=rtpt) 
             f' Precision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
         )
 
