@@ -18,6 +18,10 @@ import os
 
 
 def main():
+    """Use to inspect images or vectors from former wandb runs.
+    Evaluation during attack is already implemented in attack.py"""
+
+
     # Define and parse attack arguments
     parser = create_parser()
     config, args = parse_arguments(parser)
@@ -46,21 +50,22 @@ def main():
         G = None
         
     get_images(run, image_location, G)
-    #print("All images loaded from ", str(image_location))
+    print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
+
     for prompt in prompts:
         if not isinstance(prompt, list):
             raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
 
-    print(prompts)
     
-    # identifies hidden attribute in images, e.g. male and counts number of images with
-    # the attribute for each class e.g. class 1 = blond hair, class2 = black hari
+    
+    # identifies bias attribute in images, e.g. male and counts number of images with
+    # the attribute for each class e.g. class 1 = blond hair, class2 = black hair
     c1_attr_count, c2_attr_count = identify_attributes(prompts, clip_processor, clip_model)
 
-    print("male appearing in class 1: ", c1_attr_count)
-    print("male appearing in class 2: ", c2_attr_count)
+    print("identified as male in class 1: ", c1_attr_count)
+    print("identified as male in class 2: ", c2_attr_count)
 
     # add results to wandb attack run logs
     run.summary["c1_male"] = c1_attr_count
@@ -141,15 +146,11 @@ def identify_attributes(prompts, clip_processor, clip_model):
     # split image directory to group images by class 1 and class 2
     all_img = sorted(os.listdir("media/images"), key=lambda x: int(x.split('.')[0])) # lambda ensures numerical sorting of files with naem 0.png, 1.png etc
     
-     # TODO Throw error if image is not in right format?
-
-
     c1_img = all_img[:int(len(all_img)/2)]
     c1_decisions = []
 
     c2_img = all_img[int(len(all_img)/2):]
     c2_decisions = []
-
 
     for  i in c1_img:
         image = Image.open("media/images/" +str(i)) 
@@ -158,7 +159,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c1_decision = 0.0
     
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -177,7 +178,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c2_decision = 0.0
     
         for prompt in prompts:
-            inputs = clip_processor(text=prompt, images=image, return_tensors="pt") #process using CLIP
+            inputs = clip_processor(text=prompt, images=image, return_tensors="pt", padding=True) #process using CLIP
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image # CLIP similarity score
             probs = logits_per_image.softmax(dim=1) #softmax to get probability for prompts
@@ -188,6 +189,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         # decision = 0 for first prompt in array, 1 for 2nd prompt in array 
         c2_decision = 1 if torch.sum(torch.argmax(c2_all_probs, dim=1))/len(prompts) > 0.5 else 0
         c2_decisions.append(c2_decision) 
+
 
     c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
     c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)

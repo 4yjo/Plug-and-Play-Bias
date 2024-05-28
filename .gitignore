@@ -136,3 +136,11 @@ dmypy.json
 
 # data
 /data
+
+# images
+/initial_vectors
+/testmedia
+/Gender-Testdata-Female
+/Gender-Testdata-Male
+/Eyeglasses-Testdata-With 
+/Eyeglasses-Testdata-Without

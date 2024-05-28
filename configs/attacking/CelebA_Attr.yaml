@@ -4,13 +4,15 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_identities, celeba_attr, stanford_dogs_cropped, stanford_dogs_uncropped].
 
+prompts: [["a man", "a woman"],["a boy", "a girl"],["a male face", "a female face"]] #to identify biased attribute when balancing w in inital_selection and for evaluation of final results
+
 candidates:
-  num_candidates: 200  # Number of latent vectors to optimize for each target.
+  num_candidates: 10 #TODO 50 # Number of latent vectors to optimize for each target.
   candidate_search:
-    search_space_size: 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
+    search_space_size: 200 # TODO 2000 # Set of randomly sampled latent vector, from which the candidates are selected.
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
-    horizontal_flip: true # Flip the generated images horizontally in 50% of the cases.
+    horizontal_flip: false # Flip the generated images horizontally in 50% of the cases.
     batch_size: 25 # Batch size during the sampling process (single GPU).
     truncation_psi: 0.5 # Truncation psi for StyleGAN.
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
@@ -50,10 +52,13 @@ final_selection:
   approach: transforms # Currently only transforms is available as an option.
   iterations: 100   # Number of iterations random transformations are applied.
 
+rtpt: # State RTPT details. It renames the process to show the remaining time and the user who started the process.
+  experiment_name: Attacking Target Model
+  name_initials: AM
 
 wandb: # Options for WandB logging.
   enable_logging: true # Activate logging.
   wandb_init_args: # WandB init arguments
-    project: AttacksHaircolorGender
+    project: AttacksHaircolorGender-Balanced
     save_code: true
-    name: Male 1.0 
+    name: 

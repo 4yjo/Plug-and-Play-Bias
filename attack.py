@@ -27,6 +27,12 @@ from utils.datasets import (create_target_dataset, get_facescrub_idx_to_class,
 from utils.stylegan import create_image, load_discrimator, load_generator
 from utils.wandb import *
 
+import os
+import torchvision
+import torchvision.transforms.functional as F
+
+from transformers import CLIPProcessor, CLIPModel
+
 
 def main():
     ####################################
@@ -81,6 +87,14 @@ def main():
     target_model = config.create_target_model(wandb_target_run)
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset() #note: takes ratio from wandb config of specified target model run id
+    num_cand = config.candidates['num_candidates'] 
+    prompts = config.prompts
+
+    # TODO 
+    for prompt in prompts:
+        if not isinstance(prompt, list):
+            raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
+
 
     # Distribute models
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
@@ -89,16 +103,30 @@ def main():
     synthesis.num_ws = num_ws
     discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
 
+    synthesis.eval() 
+
     # Load basic attack parameters
     num_epochs = config.attack['num_epochs']
     batch_size_single = config.attack['batch_size']
     batch_size = config.attack['batch_size'] * torch.cuda.device_count()
     targets = config.create_target_vector()
 
-    # Create initial style vectors
+    '''
+    # Create initial style vectors (unbalanced)
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
+
+    save_as_image(w_init, synthesis)
+    '''
+    
+
+    # Create balanced distribution of bias attribute in latent space
+    w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, device)
+    del G
+
+    # save vector as images for visualization
+    #save_as_img(w_init, synthesis, 'media/images')
 
     # Initialize wandb logging
     if config.logging:
@@ -129,6 +157,10 @@ def main():
                     experiment_name='Model_Inversion_Attack',
                     max_iterations=max_iterations)
         rtpt.start()
+
+    # Load pretrained CLIP 
+    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     # Log initial vectors
     if config.logging:
@@ -179,8 +211,6 @@ def main():
         optimized_w_path = f"results/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected.detach(), optimized_w_path)
         wandb.save(optimized_w_path)
-
-    # save images locally for clip evaluation
     
 
     ####################################
@@ -205,6 +235,7 @@ def main():
             rtpt=rtpt)
         print(f'Selected a total of {final_w.shape[0]} final images ',
               f'of target classes {set(final_targets.cpu().tolist())}.')
+
     else:
         final_targets, final_w = targets, w_optimized_unselected
     del target_model
@@ -216,7 +247,85 @@ def main():
         wandb.save(optimized_w_path_selected)
         wandb.config.update({'w_path': optimized_w_path})
 
+   
 
+
+    ####################################
+    #  Attack Evaluation for Bias      #
+    ####################################
+
+    # Count number of images in attack results that hold bias attribute 
+    classes = np.arange(int(len(targets)/num_cand))  #define nr of classes to be used instead of targets
+    print('classes', classes)
+
+    counter = []
+    log_imgs_class_1=[]
+    log_imgs_class_2=[]
+    
+    # copy data to match dimensions
+    if final_w.shape[1] == 1:
+        final_w_expanded = torch.repeat_interleave(final_w,repeats=synthesis.num_ws,
+                                                    dim=1)
+    else: 
+        final_w_expanded = w
+    
+    # create images for CLIP evaluation
+    imgs = synthesis(final_w_expanded,noise_mode='const',force_fp32=True)
+
+    # crop and resize
+    imgs = F.resize(imgs, 224, antialias=True)
+
+    for i in range(imgs.shape[0]):
+        all_probs = torch.tensor([])
+
+        # maps from [-1,1] to [0,1]
+        imgs[i] = (imgs[i] * 0.5 + 128 / 224).clamp(0, 1)
+
+        # match dimensions for CLIP processor
+        perm = imgs[i].permute(1, 2, 0) 
+        perm_rescale = perm.mul(255).add_(0.5).clamp_(0, 255).type(torch.uint8)
+
+        # majority vote 
+        for prompt in prompts:
+            inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
+            outputs = clip_model(**inputs)
+            logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
+            #probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
+            probs = logits_per_image.softmax(dim=1)
+            all_probs = torch.cat((all_probs, probs),0)
+        
+        dec = 1 if torch.sum(torch.argmax(all_probs, dim=1))/len(prompts) > 0.5 else 0
+          
+        counter.append(dec)
+
+        # save first 10 images of each class to wandb
+        cpu_image = perm_rescale.detach().cpu().numpy()
+        if i < 10:
+            wand_img = wandb.Image(cpu_image, caption=f'class 1')
+            log_imgs_class_1.append(wand_img)
+
+        if (i >= num_cand ) and (i < num_cand+10):
+            wand_img = wandb.Image(cpu_image, caption=f'class 2')
+            log_imgs_class_2.append(wand_img)
+
+    wandb.log({'class 1': log_imgs_class_1})
+    wandb.log({'class 2': log_imgs_class_2})
+   
+    # count per class
+    split_idx = int(len(counter)/2)  # note: only for 2 classes
+    counter_class_1 = np.sum(counter[:split_idx])/num_cand
+    counter_class_2 = np.sum(counter[split_idx:])/num_cand
+    
+    print(f'Identified as {prompt[0]} in Class 1: {counter_class_1}')
+    print(f'Identified as {prompt[0]} in Class 2: {counter_class_2}')
+
+    # add results to wandb attack run logs
+    wandb.summary.update({f'{prompt[0]} in Class 1': counter_class_1})
+    wandb.summary.update({f'{prompt[0]} in Class 2': counter_class_2})
+    
+    wandb.config.update({'prompts': prompt})
+
+    '''
 
     ####################################
     #         Attack Accuracy          #
@@ -411,92 +520,8 @@ def main():
             print('Mean Distance on FaceNet: ', avg_dist_facenet.cpu().item())
     except Exception:
         print(traceback.format_exc())
-
-    ####################################
-    #          Finish Logging          #
-    ####################################
-
-    if rtpt:
-        rtpt.step(subtitle=f'Finishing up')
-
-    # Logging of final results
-    if config.logging:
-        print('Finishing attack, logging results and creating sample images.')
-        num_classes = 10
-        num_imgs = 8
-        # Sample final images from the first and last classes
-        label_subset = set(
-            list(set(targets.tolist()))[:int(num_classes / 2)] +
-            list(set(targets.tolist()))[-int(num_classes / 2):])
-        log_imgs = []
-        log_targets = []
-        log_predictions = []
-        log_max_confidences = []
-        log_target_confidences = []
-        # Log images with smallest feature distance
-        for label in label_subset:
-            mask = torch.where(final_targets == label, True, False)
-            w_masked = final_w[mask][:num_imgs]
-            imgs = create_image(w_masked,
-                                synthesis,
-                                crop_size=config.attack_center_crop,
-                                resize=config.attack_resize)
-            log_imgs.append(imgs)
-            log_targets += [label for i in range(num_imgs)]
-            log_predictions.append(torch.tensor(predictions)[mask][:num_imgs])
-            log_max_confidences.append(
-                torch.tensor(maximum_confidences)[mask][:num_imgs])
-            log_target_confidences.append(
-                torch.tensor(target_confidences)[mask][:num_imgs])
-
-        log_imgs = torch.cat(log_imgs, dim=0)
-        log_predictions = torch.cat(log_predictions, dim=0)
-        log_max_confidences = torch.cat(log_max_confidences, dim=0)
-        log_target_confidences = torch.cat(log_target_confidences, dim=0)
-
-        log_final_images(log_imgs, log_predictions, log_max_confidences,
-                         log_target_confidences, idx_to_class)
-
-        # Find closest training samples to final results
-        log_nearest_neighbors(log_imgs,
-                              log_targets,
-                              evaluation_model_dist,
-                              'InceptionV3',
-                              target_dataset,
-                              img_size=299,
-                              seed=config.seed,
-                              attributes=attributes,
-                              hidden_attributes=hidden_attributes,
-                              ratio=ratio)
-
-        # Use FaceNet only for facial images
-        facenet = InceptionResnetV1(pretrained='vggface2')
-        facenet = torch.nn.DataParallel(facenet, device_ids=gpu_devices)
-        facenet.to(device)
-        facenet.eval()
-        if target_dataset in [
-                'facescrub', 'celeba_identities', 'celeba_attributes'
-        ]:
-            log_nearest_neighbors(log_imgs,
-                                  log_targets,
-                                  facenet,
-                                  'FaceNet',
-                                  target_dataset,
-                                  img_size=160,
-                                  seed=config.seed,
-                                  attributes=attributes,
-                                  hidden_attributes=hidden_attributes,
-                                  ratio=ratio)
-
-        # Final logging
-        #final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-        #                    acc_top5, avg_dist_facenet, avg_dist_inception,
-        #                    fid_score, precision, recall, density, coverage)
-        
-        # Final logging
-        final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-                            avg_dist_facenet, avg_dist_inception,
-                            fid_score, precision, recall, density, coverage)
+    '''
+    
 
 
 def create_parser():
@@ -534,6 +559,16 @@ def parse_arguments(parser):
 def create_initial_vectors(config, G, target_model, targets, device):
     with torch.no_grad():
         w = config.create_candidates(G, target_model, targets).cpu()
+        if config.attack['single_w']:
+            w = w[:, 0].unsqueeze(1)
+        w_init = deepcopy(w)
+        x = None
+        V = None
+    return w, w_init, x, V
+
+def create_bal_initial_vectors(config, G, target_model, targets, device):
+    with torch.no_grad():
+        w = config.create_bal_candidates(G, target_model, targets).cpu()
         if config.attack['single_w']:
             w = w[:, 0].unsqueeze(1)
         w_init = deepcopy(w)
@@ -582,6 +617,35 @@ def log_attack_progress(loss,
             'mean_conf': mean_conf,
             'learning_rate': lr
         })
+
+def save_as_img(vector, synthesis, outdir=None):
+    # make local directory to store generated images
+    if outdir is not None:
+        os.makedirs(outdir)
+    else: 
+        os.makedirs('media/images/results')
+
+    # copy data to match dimensions
+    if vector.shape[1] == 1:
+        vector_expanded = torch.repeat_interleave(vector,
+                                    repeats=synthesis.num_ws,
+                                    dim=1)
+    else: 
+        vector_expanded = vector
+
+    # create images from init vectors for testing
+    print(vector_expanded.shape)
+    x = synthesis(vector_expanded, noise_mode='const', force_fp32=True)
+
+    print(x.shape)
+    # crop and resize
+    x = F.resize(x, 224, antialias=True)
+    x = (x * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+    print(x.shape)
+        
+    for i in range(x.shape[0]):
+        torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
+    print('images saved to ', str(outdir))
 
 
 def init_wandb_logging(optimizer, target_model_name, config, args):
@@ -637,25 +701,27 @@ def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
     wandb.log({f'closest_samples {model_name}': closest_samples})
 
 
-def log_final_images(imgs, predictions, max_confidences, target_confidences,
+def log_final_images(imgs, targets,predictions, max_confidences, target_confidences,
                      idx2cls):
+   
     wand_imgs = [
         wandb.Image(
             img.permute(1, 2, 0).numpy(),
             caption=
-            f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
-        ) for img, pred, max_conf, target_conf in zip(
-            imgs.cpu(), predictions, max_confidences, target_confidences)
+            f'class: {targets}'
+            #f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
+        ) for img, target, pred, max_conf, target_conf in zip(
+            imgs.cpu(), targets, predictions, max_confidences, target_confidences)
     ]
+    print('wandb imgs', wand_imgs)
     wandb.log({'final_images': wand_imgs})
 
-def save_final_images():
-    #TODO save final images to media/images
-    pass
+
+
 
 def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, 
                         avg_dist_facenet, avg_dist_eval, fid_score, precision,
-                        recall, density, coverage): #TODO insert acc_top5
+                        recall, density, coverage):
     wandb.save('attacks/gradient_based.py')
     wandb.run.summary['correct_avg_conf'] = avg_correct_conf
     wandb.run.summary['total_avg_conf'] = avg_total_conf
