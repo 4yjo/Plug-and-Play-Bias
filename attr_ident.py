@@ -53,7 +53,7 @@ def main():
     print("All images loaded from ", str(image_location))
 
     prompts = config.prompts
-    
+
     for prompt in prompts:
         if not isinstance(prompt, list):
             raise ValueError("prompts must be 2d array, e.g. [['a boy','a girl']]")
@@ -190,8 +190,7 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c2_decision = 1 if torch.sum(torch.argmax(c2_all_probs, dim=1))/len(prompts) > 0.5 else 0
         c2_decisions.append(c2_decision) 
 
-    print('c1 dec', c1_decisions)
-    print('c2 dec', c2_decisions)
+
     c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
     c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
 
