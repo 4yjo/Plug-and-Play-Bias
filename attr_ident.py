@@ -94,7 +94,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images/0.0_balanced" 
+        outdir = "media/images/test" 
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
@@ -147,7 +147,7 @@ def get_images(run, image_location, G=None):
         #save images
         #for i in range(x.shape[0]):
         torchvision.utils.save_image(x[:50], f'{outdir}/initial_class1.png') 
-        torchvision.utils.save_image(x[50:], f'{outdir}/initial_class2.png') 
+        torchvision.utils.save_image(x[50:], f'{outdir}/initial_class2.png')  
 
 
         
@@ -158,9 +158,10 @@ def get_images(run, image_location, G=None):
         print('OPTIMIZED')
         # get weights from wandb
         for file in run.files():
-            if file.name.startswith("results/optimized_w"):    
+            if file.name.startswith("results/optimized_w") and not file.name.startswith("results/optimized_w_selected"):    
                 vv_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
                 print('weights downloaded')
+                print(file.name)
                 
                 vv = torch.load(vv_file.name).cuda() #loads tensor from file 
                 print(vv.shape)
@@ -172,7 +173,8 @@ def get_images(run, image_location, G=None):
                                                     repeats=synthesis.num_ws,
                                                     dim=1)
                 else: 
-                    w_expanded = w
+                    vv_expanded = vv
+        
         
         #print(w_expanded.shape)
         y = synthesis(vv_expanded, noise_mode='const', force_fp32=True)
@@ -188,6 +190,42 @@ def get_images(run, image_location, G=None):
         #for i in range(x.shape[0]):
         torchvision.utils.save_image(y[:50], f'{outdir}/optimized_class1.png') 
         torchvision.utils.save_image(y[50:], f'{outdir}/optimized_class2.png') 
+
+        print('SELECTED')
+        for file in run.files():
+                if file.name.startswith("results/optimized_w_selected"):    
+                    v_file = file.download(exist_ok=True) #wandb only downloads if file does not already exist
+                    print('weights downloaded')
+                    print(file.name)
+                    
+                    v = torch.load(v_file.name).cuda() #loads tensor from file 
+                    print(v.shape)
+
+
+                    # copy data to match dimensions
+                    if v.shape[1] == 1:
+                        v_expanded = torch.repeat_interleave(v,
+                                                        repeats=synthesis.num_ws,
+                                                        dim=1)
+                    else: 
+                        v_expanded = v
+            
+            
+        #print(w_expanded.shape)
+        z = synthesis(v_expanded, noise_mode='const', force_fp32=True)
+
+   
+        # crop and resize
+        z = F.resize(z, 224, antialias=True)
+        #x = F.center_crop(x, (800, 800)) #crop images
+        z = (z * 0.5 + 128 / 224).clamp(0, 1) #maps from [-1,1] to [0,1]
+      
+        
+        #save images
+        #for i in range(x.shape[0]):
+        torchvision.utils.save_image(z[:50], f'{outdir}/selected_class1.png') 
+        torchvision.utils.save_image(z[50:], f'{outdir}/selected_class2.png') 
+
 
 def identify_attributes(prompts, clip_processor, clip_model):
      #automatic evaluation of all images in "media/images" 
