@@ -111,22 +111,23 @@ def main():
     batch_size = config.attack['batch_size'] * torch.cuda.device_count()
     targets = config.create_target_vector()
 
-    '''
+    
     # Create initial style vectors (unbalanced)
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
 
-    save_as_image(w_init, synthesis)
-    '''
+    #save_as_image(w_init, synthesis)
     
-
+    
+    '''
     # Create balanced distribution of bias attribute in latent space
     w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, device)
     del G
-
+    
     # save vector as images for visualization
     #save_as_img(w_init, synthesis, 'media/images')
+    '''
 
     # Initialize wandb logging
     if config.logging:
@@ -312,17 +313,24 @@ def main():
     wandb.log({'class 2': log_imgs_class_2})
    
     # count per class
-    split_idx = int(len(counter)/2)  # note: only for 2 classes
-    counter_class_1 = np.sum(counter[:split_idx])/num_cand
-    counter_class_2 = np.sum(counter[split_idx:])/num_cand
+    split_idx = int(len(counter)/2)  # note: only works for 2 classes
+    counter_class_1 = counter[:split_idx]
+    counter_class_2 = counter[split_idx:]
+
+    c1_total = np.sum(counter_class_1)/num_cand
+    c2_total = np.sum(counter_class_2)/num_cand
     
-    print(f'Identified as {prompt[0]} in Class 1: {counter_class_1}')
-    print(f'Identified as {prompt[0]} in Class 2: {counter_class_2}')
+    print(f'Identified as {prompt[0]} in Class 1: {c1_total}')
+    print(f'Identified as {prompt[0]} in Class 2: {c2_total}')
+
 
     # add results to wandb attack run logs
-    wandb.summary.update({f'{prompt[0]} in Class 1': counter_class_1})
-    wandb.summary.update({f'{prompt[0]} in Class 2': counter_class_2})
-    
+    wandb.summary.update({f'{prompt[0]} in Class 1': c1_total})
+    wandb.summary.update({f'{prompt[0]} in Class 2': c2_total})
+    wandb.summary.update({'c1-10': np.sum(counter_class_1[:10])/10})
+    wandb.summary.update({'c1-25': np.sum(counter_class_1[:25])/25})
+    wandb.summary.update({'c2-10': np.sum(counter_class_2[:10])/10})
+    wandb.summary.update({'c2-25': np.sum(counter_class_2[:25])/25})
     wandb.config.update({'prompts': prompt})
 
     '''
