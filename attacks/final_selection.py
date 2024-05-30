@@ -77,4 +77,4 @@ def perform_final_selection(w,
             )
     final_targets = torch.cat(final_targets, dim=0)
     final_w = torch.cat(final_w, dim=0)
-    return final_w, final_targets, selected_indices
+    return final_w, final_targets

@@ -223,7 +223,7 @@ def main():
             f'\nSelect final set of max. {config.final_selection["samples_per_target"]} ',
             f'images per target using {config.final_selection["approach"]} approach.'
         )
-        final_w, final_targets, final_indices = perform_final_selection(
+        final_w, final_targets = perform_final_selection(
             w_optimized_unselected,
             synthesis,
             config,
@@ -236,7 +236,6 @@ def main():
         print(f'Selected a total of {final_w.shape[0]} final images ',
               f'of target classes {set(final_targets.cpu().tolist())}.')
 
-        print('indices of fiinal selection: ', final_indices)
 
     else:
         final_targets, final_w = targets, w_optimized_unselected
@@ -294,7 +293,6 @@ def main():
             inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-            #probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
             probs = logits_per_image.softmax(dim=1)
             all_probs = torch.cat((all_probs, probs),0)
         
