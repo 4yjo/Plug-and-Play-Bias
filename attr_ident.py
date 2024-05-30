@@ -94,7 +94,7 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/images/1.0_unbalanced" 
+        outdir = "media/gender-mso/1.0_unbalanced" 
         os.makedirs(outdir, exist_ok=True)
 
         # Set devices
