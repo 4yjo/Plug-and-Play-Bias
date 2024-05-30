@@ -119,7 +119,6 @@ def main():
 
     #save_as_image(w_init, synthesis)
     
-    
     '''
     # Create balanced distribution of bias attribute in latent space
     w, w_init, x, V = create_bal_initial_vectors(config, G, target_model, targets, device)
@@ -237,6 +236,7 @@ def main():
         print(f'Selected a total of {final_w.shape[0]} final images ',
               f'of target classes {set(final_targets.cpu().tolist())}.')
 
+
     else:
         final_targets, final_w = targets, w_optimized_unselected
     del target_model
@@ -262,6 +262,7 @@ def main():
     counter = []
     log_imgs_class_1=[]
     log_imgs_class_2=[]
+
     
     # copy data to match dimensions
     if final_w.shape[1] == 1:
@@ -269,6 +270,7 @@ def main():
                                                     dim=1)
     else: 
         final_w_expanded = w
+
     
     # create images for CLIP evaluation
     imgs = synthesis(final_w_expanded,noise_mode='const',force_fp32=True)
@@ -291,7 +293,6 @@ def main():
             inputs = clip_processor(text=prompt, images=perm_rescale, return_tensors="pt", padding=True)
             outputs = clip_model(**inputs)
             logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-            #probs = torch.flatten(torch.round(logits_per_image.softmax(dim=1)))
             probs = logits_per_image.softmax(dim=1)
             all_probs = torch.cat((all_probs, probs),0)
         
@@ -301,17 +302,19 @@ def main():
 
         # save first 10 images of each class to wandb
         cpu_image = perm_rescale.detach().cpu().numpy()
+
         if i < 10:
-            wand_img = wandb.Image(cpu_image, caption=f'class 1')
+            wand_img = wandb.Image(cpu_image)
             log_imgs_class_1.append(wand_img)
 
         if (i >= num_cand ) and (i < num_cand+10):
-            wand_img = wandb.Image(cpu_image, caption=f'class 2')
+            wand_img = wandb.Image(cpu_image)
             log_imgs_class_2.append(wand_img)
 
-    wandb.log({'class 1': log_imgs_class_1})
-    wandb.log({'class 2': log_imgs_class_2})
-   
+    wandb.log({'final class 1': log_imgs_class_1})
+    wandb.log({'final class 2': log_imgs_class_2})
+        
+
     # count per class
     split_idx = int(len(counter)/2)  # note: only works for 2 classes
     counter_class_1 = counter[:split_idx]
