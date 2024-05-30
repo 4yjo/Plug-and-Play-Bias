@@ -111,7 +111,7 @@ def main():
     batch_size = config.attack['batch_size'] * torch.cuda.device_count()
     targets = config.create_target_vector()
 
-    
+    '''
     # Create initial style vectors (unbalanced)
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
@@ -126,7 +126,7 @@ def main():
     
     # save vector as images for visualization
     #save_as_img(w_init, synthesis, 'media/images')
-    '''
+   
 
     # Initialize wandb logging
     if config.logging:
@@ -319,6 +319,9 @@ def main():
     split_idx = int(len(counter)/2)  # note: only works for 2 classes
     counter_class_1 = counter[:split_idx]
     counter_class_2 = counter[split_idx:]
+
+    print('counter 1', counter_class_1[:10])
+    print('counter 2', counter_class_2[:10])
 
     c1_total = np.sum(counter_class_1)/num_cand
     c2_total = np.sum(counter_class_2)/num_cand

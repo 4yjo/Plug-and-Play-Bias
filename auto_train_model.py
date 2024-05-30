@@ -7,7 +7,7 @@ import subprocess
 # make sure that indices given attributes and hidden_attributes are what you want to filter the data
 # get the indices for attributes eg. 20: 'Male' from datasets/inspect_dataset.py
 
-ratios = [i/10 for i in range(6,11)]
+ratios = [i/10 for i in range(11)]
 
 # Iterate over the ratios and run names
 for ratio in ratios:

@@ -4,7 +4,7 @@ stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_attributes # Target dataset, select one of [facescrub, celeba_identities, celeba_attr, stanford_dogs_cropped, stanford_dogs_uncropped].
 
-prompts: [["a man", "a woman"],["a boy", "a girl"],["a male face", "a female face"]] #to identify biased attribute when balancing w in inital_selection and for evaluation of final results
+prompts: [["a person with sunglasses", "a person without sunglasses"],["a person with glasses", "a person with no glasses"],["a person with spectacles", "a person without spectacles"]] #to identify biased attribute when balancing w in inital_selection and for evaluation of final results
 
 candidates:
   num_candidates: 50  # Number of latent vectors to optimize for each target.
@@ -59,6 +59,6 @@ rtpt: # State RTPT details. It renames the process to show the remaining time an
 wandb: # Options for WandB logging.
   enable_logging: true # Activate logging.
   wandb_init_args: # WandB init arguments
-    project: AttacksHaircolorGender-NotBalanced
+    project: AttacksMouthopenGlasses-NotBalanced
     save_code: true
     name: 
