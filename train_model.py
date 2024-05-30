@@ -60,17 +60,19 @@ def main():
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()
 
+
     
     
-    '''
     # Save images locally to inspect train set 
-    outdir1 = "testmedia/images-class1" #just for testing
-    os.makedirs(outdir1, exist_ok=True) #just for testing
+    outdir1 = "updated_training0/class1(blond)" #just for testing
+    os.makedirs(outdir1) #just for testing
 
-    outdir2 = "testmedia/images-class2" #just for testing
-    os.makedirs(outdir2, exist_ok=True) #just for testing
+    outdir2 = "updated_training0/class2(blackhair)" #just for testing
+    os.makedirs(outdir2) #just for testing
 
-    for i in range(100):
+    
+    #save single images
+    for i in range(50):
         if (train_set[i][1]==0): #for class 1
             filename = f"{outdir1}/{i}.png" 
             #print('train set ', train_set[i]) prints tensor holding image data and target
@@ -80,8 +82,9 @@ def main():
             filename = f"{outdir2}/{i}.png" 
             #print('train set ', train_set[i]) prints tensor holding image data and target
             torchvision.utils.save_image(train_set[i][0], filename) 
+
     print('images saved')
-    ''' 
+    
 
 
     criterion = torch.nn.CrossEntropyLoss()
