@@ -7,9 +7,9 @@ import subprocess
 # make sure that indices given attributes and hidden_attributes are what you want to filter the data
 # get the indices for attributes eg. 20: 'Male' from datasets/inspect_dataset.py
 
-ratios = [i/10 for i in range(6,11)]
+ratios = [i/10 for i in range(5,11)]
 
 # Iterate over the ratios and run names
 for ratio in ratios:
-    command = f"python train_model.py  -c=configs/training/default_training.yaml --attributes 20  --hidden_attributes 21 --ratio {ratio} --run_name=\"blond_{ratio}\"" 
+    command = f"python train_model.py  -c=configs/training/default_training.yaml --attributes 20  --hidden_attributes 21 --ratio {ratio} --run_name=\"MSO_{ratio}\"" 
     subprocess.run(command, shell=True)
