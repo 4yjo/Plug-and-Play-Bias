@@ -1,5 +1,5 @@
 ---
-wandb_attack_run: plugandplay/AttacksGenderMouthopen-NotBalanced/ruun8c2r # WandB run id for attack that should be evaluated
+wandb_attack_run: plugandplay/AttacksMouthopenGlasses-NotBalanced/g7yrwv9g # WandB run id for attack that should be evaluated
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 
 seed: 42

@@ -94,8 +94,8 @@ def get_images(run, image_location, G=None):
         print('using wandb weight vector to generate images for CLIP evaluation')
        
         # make local directory to store generated images
-        outdir = "media/gender-mso/1.0_unbalanced" 
-        os.makedirs(outdir, exist_ok=True)
+        outdir = "media/mso-glasses1/1.0_unbalanced" 
+        os.makedirs(outdir)
 
         # Set devices
         torch.set_num_threads(24)

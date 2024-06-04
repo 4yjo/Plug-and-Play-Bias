@@ -2,7 +2,7 @@ import pandas as pd
 import wandb
 
 api = wandb.Api()
-entity, project = "plugandplay", "AttacksMouthopenGlasses-Balanced"
+entity, project = "plugandplay", "AttacksMouthopenGlasses-NotBalanced"
 runs = api.runs(entity + "/" + project)
 
 c1_list, c2_list, c1_list_10, c1_list_25, c2_list_10, c2_list_25, name_list = [], [], [], [], [],[], []
@@ -33,4 +33,4 @@ runs_df = pd.DataFrame(
     { "name": name_list, "c1_male": c1_list, "c1-10": c1_list_10, "c1-25": c1_list_25,"c2_male": c2_list,"c2-10": c2_list_10, "c2-25": c2_list_25,}
 )
 
-runs_df.to_csv("AttacksMouthopenGlasses-Balanced.csv")
+runs_df.to_csv("AttacksMouthopenGlasses-NotBalanced.csv")
