@@ -62,17 +62,8 @@ def main():
     
     # identifies bias attribute in images, e.g. male and counts number of images with
     # the attribute for each class e.g. class 1 = blond hair, class2 = black hair
-    c1_attr_count, c2_attr_count = identify_attributes(prompts, clip_processor, clip_model)
+    identify_attributes(prompts, clip_processor, clip_model, run)
 
-    print("identified as male in class 1: ", c1_attr_count)
-    print("identified as male in class 2: ", c2_attr_count)
-
-    # add results to wandb attack run logs
-    run.summary["c1_male"] = c1_attr_count
-    run.summary["c2_male"] = c2_attr_count
-    run.summary.update()
-    run.config['prompts'] = config.prompts
-    run.update()
 
 def load_clip():
     # use transformers to load pretrained clip model and processor
@@ -139,7 +130,7 @@ def get_images(run, image_location, G=None):
         for i in range(x.shape[0]):
             torchvision.utils.save_image(x[i], f'{outdir}/{i}.png') 
 
-def identify_attributes(prompts, clip_processor, clip_model):
+def identify_attributes(prompts, clip_processor, clip_model, run):
      #automatic evaluation of all images in "media/images" 
 
 
@@ -170,7 +161,6 @@ def identify_attributes(prompts, clip_processor, clip_model):
         c1_decision = 1 if torch.sum(torch.argmax(c1_all_probs, dim=1))/len(prompts) > 0.5 else 0
         c1_decisions.append(c1_decision) 
 
-
         
     for  i in c2_img:
         image = Image.open("media/images/" +str(i)) 
@@ -193,6 +183,29 @@ def identify_attributes(prompts, clip_processor, clip_model):
 
     c1_attr_count = (len(c1_decisions)-np.sum(c1_decisions))/len(c1_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
     c2_attr_count = (len(c2_decisions)-np.sum(c2_decisions))/len(c2_decisions)  # -> get percentage of images with attribute described in 1st prompt(s)
+
+
+    c1_total = np.sum(c1_decisions)/len(c1_decisions)
+    c2_total = np.sum(c2_decisions)/len(c1_decisions)
+    
+    print(f'Identified as {prompt[0]} in Class 1: {c1_total}')
+    print(f'Identified as {prompt[0]} in Class 2: {c2_total}')
+    print(f'c1-10 {np.sum(c1_decisions[:10])/10}')
+    print(f'c1-25 {np.sum(c1_decisions[:25])/25}')
+    print(f'c2-10 {np.sum(c2_decisions[:10])/10}')
+    print(f'c2-25 {np.sum(c2_decisions[:25])/25}')
+
+
+
+    # add results to wandb attack run logs
+    run.summary.update({f'{prompt[0]} in Class 1': c1_total})
+    run.summary.update({f'{prompt[0]} in Class 2': c2_total})
+    run.summary.update({'c1-10': np.sum(c1_decisions[:10])/10})
+    run.summary.update({'c1-25': np.sum(c1_decisions[:25])/25})
+    run.summary.update({'c2-10': np.sum(c2_decisions[:10])/10})
+    run.summary.update({'c2-25': np.sum(c2_decisions[:25])/25})
+    run.config.update({'prompts': prompt})
+
 
     return c1_attr_count, c2_attr_count
 
