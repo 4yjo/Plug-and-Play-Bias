@@ -118,8 +118,6 @@ class TrainingConfigParser:
             valid_len = len(valid_set)
         if test_set:
             test_len = len(test_set)
-
-        # add discarded here  -> call from celeba_attr class TODO
     
         print(
             f'Created {name} datasets with {train_len:,} training, {valid_len:,} validation and {test_len:,} test samples.\n',

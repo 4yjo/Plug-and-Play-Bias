@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from mapper import latent_mappers
-#from models.stylegan2.model import Generator
 from utils.stylegan import load_generator
 
 
@@ -19,9 +18,8 @@ class StyleCLIPMapper(nn.Module):
 		self.opts = opts
 		# Define architecture
 		self.mapper = self.set_mapper()
-		#self.decoder = Generator(self.opts.stylegan_size, 512, 8)
-		G = load_generator("stylegan2-ada-pytorch/ffhq.pkl") #TODO add to config as in attak
-		self.decoder = G(self.opts.stylegan_size, 512, 8) # TODO check if thats correct
+		G = load_generator("stylegan2-ada-pytorch/ffhq.pkl") 
+		self.decoder = G(self.opts.stylegan_size, 512, 8) 
 		self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
 		# Load weights if needed
 		self.load_weights()
@@ -43,8 +41,7 @@ class StyleCLIPMapper(nn.Module):
 			ckpt = torch.load(self.opts.checkpoint_path, map_location='cpu')
 			self.mapper.load_state_dict(get_keys(ckpt, 'mapper'), strict=True)
 			self.decoder.load_state_dict(get_keys(ckpt, 'decoder'), strict=True)
-		#elif:
-			#TODO add weights from my project and get default for decoder?
+		
 		else:
 			print('Loading decoder weights from pretrained!')
 			ckpt = torch.load(self.opts.stylegan_weights)

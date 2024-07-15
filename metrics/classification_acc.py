@@ -92,4 +92,4 @@ class ClassificationAccuracy():
                     f'Classification Evaluation step {step} of {max_iter}')
 
         return acc_top1, predictions, avg_correct_conf, avg_total_conf, \
-            confidences, maximum_confidences, precision_list #TODO add acc_top5 for multiclass problems
+            confidences, maximum_confidences, precision_list 

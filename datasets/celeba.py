@@ -33,8 +33,8 @@ class CelebA_Attributes(Dataset):
         
 
         # get attribute via index provided in config file (e.g. default_training.yaml)
-        #attributes = attributes  
-        #hidden_attributes = hidden_attributes 
+        # attributes = attributes  
+        # hidden_attributes = hidden_attributes 
         self.split_seed = split_seed
 
         # create subsets for class 1 and class 2
@@ -46,7 +46,7 @@ class CelebA_Attributes(Dataset):
             self.class2_idx = self.create_idx(attributes[0], hidden_attributes, 0.5, negation=True)
 
         elif (len(attributes) == 2):
-            c1_attr = attributes[0] # TODO maybe change to also allow attribute negations
+            c1_attr = attributes[0] 
             c2_attr = attributes[1]
 
             self.class1_idx = self.create_idx(c1_attr, hidden_attributes, ratio)
@@ -168,7 +168,7 @@ class CelebA_Attributes(Dataset):
 
                 hidden_pos_idx = hidden_pos[:int(total_samples*ratio)]
                 hidden_neg_idx = hidden_neg[:int(total_samples*(1-ratio))]
-                # TODO check what happens if there are not enough neg samples
+        
 
                 class_idx = np.concatenate([hidden_pos_idx, hidden_neg_idx])
 
@@ -353,47 +353,3 @@ class CustomCelebA(VisionDataset):
         lines = ["Target type: {target_type}", "Split: {split}"]
         return '\n'.join(lines).format(**self.__dict__)
 
-
-
-'''
-
-print("INSPECTION CELEBA1000")
-inspection_set = CelebA1000(train=True)
-
-
-#print(inspection_set[0])
-#_,idx = inspection_set[0]
-#print("idx: " + str(idx))
-
-print("INSPECTION ATTRIBUTES BASE CLASS")
-my_test = CustomCelebA(root='data/celeba',
-                        split='all',
-                        target_type="attr")
-
-#print(my_test.attr_names)
-#print(my_test.attr.shape)
-print(my_test[949])
-
-_,attributes = my_test[3]
-print(attributes.shape)
-
-print("INSPECTION CELAB A ATTRIBUTES CLASS")
-testinstance = CelebA_Attributes(train=True, attributes=[9,8], hidden_attributes=[20], ratio = 0.5)
-print(len(testinstance))
-print(testinstance[680])
-
-print("INSPECTION ATTRIBUTES BASE CLASS")
-my_test = CustomCelebA(root='data/celeba',
-                        split='all',
-                        target_type="attr")
-
-#print(my_test.attr_names)
-#print(my_test.attr.shape)
-#print(my_test[680])
-
-_,attributes = my_test[680]
-print('black hair: ', int(attributes[8]))
-print('blond hair: ', int(attributes[9]))
-print('male: ', int(attributes[20]))
-
-'''

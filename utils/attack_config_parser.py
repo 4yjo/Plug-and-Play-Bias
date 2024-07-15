@@ -44,7 +44,7 @@ class AttackConfigParser:
     def get_target_dataset(self):
         try:
             api = wandb.Api(timeout=60)
-            run = api.run(self._config['wandb_target_run']) # TODO automatisation
+            run = api.run(self._config['wandb_target_run']) 
             return run.config['Dataset'].strip().lower()
         except:
             return self._config['dataset']
